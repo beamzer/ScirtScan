@@ -20,7 +20,7 @@ The input file is required (-i) it takes the form of a list of website names, e.
 ## Output
 Output is generated in a newly created directory. The directory name is based on the date (YYYYMMDD). The output directory containss the sqlite file websites.db and the per website results log.
 
-##Requirements
+## Requirements
 scirtscan.py assumes you have the following software in your path:
 > https://github.com/santoru/shcheck  
 > https://github.com/ssllabs/ssllabs-scan  

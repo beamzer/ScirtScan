@@ -13,9 +13,9 @@ Information is stored in a Sqlite database and sql2html.py creates an index.html
 
 ## Input file
 The input file is required (-i) it takes the form of a list of website names, e.g. :
-> www.google.com
-> www.microsoft.com
-> www.amazon.com
+> www.google.com  
+> www.microsoft.com  
+> www.amazon.com  
 
 ## Output
 Output is generated in a newly created directory. The directory name is based on the date (YYYYMMDD). The output directory containss the sqlite file websites.db and the per website results log.

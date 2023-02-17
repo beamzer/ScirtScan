@@ -1,29 +1,54 @@
 #!/usr/bin/env python3
 import sqlite3
 import argparse
+import os
 import datetime
 from datetime import date
+
 
 html_table = ""
 
 today = date.today()
 dir = today.strftime("%Y%m%d")
 
-parser = argparse.ArgumentParser(description='sql2html')
+parser = argparse.ArgumentParser(description='creates an index.html page from the sqlite database websites.db')
 
 parser.add_argument(
     '-d','--debug',
     action='store_true',
     help='print debug messages to stderr'
-)
+    )
+
+parser.add_argument(
+    '-p', '--path', 
+    type=str, 
+    help='The directory path, if not given will assume the directory with todays date: YYYYMMDD'
+    )
 
 args = parser.parse_args()
 debug = args.debug
 
-debug and print("debug output activated")
+# If the path argument is provided, use it as the directory path
+if args.path:
+    directory_path = args.path
+else:
+    # If the path argument is not provided, set the directory name to today's date
+    directory_path = today.strftime('%Y%m%d')
 
-# Connect to the SQLite database
-conn = sqlite3.connect('websites.db')
+debug and print("debug output activated")
+debug and print(f"Will read from, and store into directory: {directory_path}")
+
+# Check if the directory exists
+if not os.path.exists(directory_path):
+    print(f"The directory {directory_path} does not exist.")
+    exit()
+
+# Connect to the SQLite database in the directory
+try:
+    conn = sqlite3.connect(os.path.join(directory_path, 'websites.db'))
+    debug and print(f"Connected to database {os.path.join(directory_path, 'websites.db')}.")
+except sqlite3.Error as e:
+    print(f"Error connecting to database: {e}")
 
 # Query the database and store the results in a dataframe
 sql_query = ("SELECT websites, robots_check, headers_check, version_check, error_check, grade, grade_check, check_date FROM website_checks")
@@ -32,7 +57,7 @@ try:
     cs.execute(sql_query)
     result = cs.fetchall()
 except sqlite3.Error as error:
-    print("Failed to fetch data from website_check", error)
+    print("Failed to fetch data from websites.db", error)
 for row in result:
     debug and print(row)
     website = row[0]
@@ -45,44 +70,56 @@ for row in result:
     date_check = row[7]
     debug and print(date_check, website, robo_check, head_check, vers_check, err_check, grad_check, grade)
  
-    debugfile = dir + "/" + website + ".txt"
+    # debugfile = dir + "/" + website + ".txt"
+    debugfile = website + ".txt"
     html_table = html_table +  "<tr><td class=\"url\"><a href=\"" + debugfile + "\">" + website + "</a></td>"
 
     # https://www.freecodecamp.org/news/checkmark-symbol-html-for-checkmark-unicode/
     # https://www.howtocodeschool.com/2020/09/cross-symbols.html
-    if robo_check == 0:
+    if robo_check == 1:
+        html_table = html_table + "<td class=\"green\">" + "&#x2705;" + "</td>"
+    elif robo_check == 0:
         html_table = html_table + "<td class=\"red\">" + "&#10006;" + "</td>"
     else:
-        html_table = html_table + "<td class=\"green\">" + "&#x2705;" + "</td>"
+        html_table = html_table + "<td class=\"orange\">" + "&quest;" + "</td>"
 
-    if head_check == 0:
+    if head_check == 1:
+        html_table = html_table + "<td class=\"green\">" + "&#x2705;" + "</td>"
+    elif robo_check == 0:
         html_table = html_table + "<td class=\"red\">" + "&#10006;" + "</td>"
     else:
-        html_table = html_table + "<td class=\"green\">" + "&#x2705;" + "</td>"
+        html_table = html_table + "<td class=\"orange\">" + "&quest;" + "</td>"
 
-    if vers_check == 0:
+    if vers_check == 1:
+        html_table = html_table + "<td class=\"green\">" + "&#x2705;" + "</td>"
+    elif robo_check == 0:
         html_table = html_table + "<td class=\"red\">" + "&#10006;" + "</td>"
     else:
-        html_table = html_table + "<td class=\"green\">" + "&#x2705;" + "</td>"
+        html_table = html_table + "<td class=\"orange\">" + "&quest;" + "</td>"
 
-    if err_check == 0:
+    if err_check == 1:
+        html_table = html_table + "<td class=\"green\">" + "&#x2705;" + "</td>"
+    elif robo_check == 0:
         html_table = html_table + "<td class=\"red\">" + "&#10006;" + "</td>"
     else:
-        html_table = html_table + "<td class=\"green\">" + "&#x2705;" + "</td>"
+        html_table = html_table + "<td class=\"orange\">" + "&quest;" + "</td>"
 
-    if grad_check == 0:
+    if grad_check == 1:
+        html_table = html_table + "<td class=\"green\">" + "&#x2705;" + "</td>"
+    elif robo_check == 0:
         html_table = html_table + "<td class=\"red\">" + "&#10006;" + "</td>"
     else:
-        html_table = html_table + "<td class=\"green\">" + "&#x2705;" + "</td>"
+        html_table = html_table + "<td class=\"orange\">" + "&quest;" + "</td>"
 
-    if grad_check == 0:
+    if grad_check == 1:
+        html_table = html_table + "<td class=\"green\">"
+    elif robo_check == 0:
         html_table = html_table + "<td class=\"red\">"
     else:
-        html_table = html_table + "<td class=\"green\">"
+        html_table = html_table + "<td class=\"orange\">"
+
     html_table = html_table + grade + "</td>"
-
     html_table = html_table + "<td>" + date_check + "</td>"
-
     html_table = html_table + "</td></tr>\n"
 
 # Close the connection to the database
@@ -123,10 +160,11 @@ html_page = """
 </html>
 """.format(css_styles, html_table)
 
+myindex = directory_path + "/" + "index.html"
 try:
-    with open('index.html', 'w') as f:
+    with open(myindex, 'w') as f:
         f.write(html_page)
 except OSError as error:
     print(error)
 
-debug and print("HTML table written to index.html")
+print(f"HTML table written to {myindex}")

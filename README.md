@@ -27,4 +27,7 @@ scirtscan.py assumes you have the following software in your path:
 
 
 ## Structure
-The main python script (scirtscan.py) works with function, you can easily comment out functions to test a single one, or add a new function for new checks. I will add an commandline option for this in the very near future. 
+The main python script (scirtscan.py) works with functions, you can easily comment out functions to test a single one, or add a new function for new checks. I will add an commandline option for this in the very near future. 
+
+## Bugs
+At the moment sql2html.py doesn't like it when fields in the database are empty. I will fix this.

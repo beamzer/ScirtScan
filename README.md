@@ -31,3 +31,7 @@ The main python script (scirtscan.py) works with functions, you can easily comme
 
 ## Bugs
 At the moment sql2html.py doesn't like it when fields in the database are empty. I will fix this.
+
+## Upcoming features
+* A check for the presence of `.well-known/security.txt `
+* more output options

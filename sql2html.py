@@ -76,14 +76,32 @@ for row in result:
 
     # https://www.freecodecamp.org/news/checkmark-symbol-html-for-checkmark-unicode/
     # https://www.howtocodeschool.com/2020/09/cross-symbols.html
-    if robo_check == 1:
+
+    if grad_check == 1:
+        html_table = html_table + "<td class=\"white\">"   # white for better readability
+    elif grad_check == 0:
+        html_table = html_table + "<td class=\"red\">"
+    else:
+        html_table = html_table + "<td class=\"orange\">"
+    vtgradelink = '<a href="https://www.ssllabs.com/ssltest/analyze.html?d=' + website + '&hideResults=on">' + grade + '</a>'
+    html_table = html_table + vtgradelink + "</td>"
+
+    if grad_check == 1:
         html_table = html_table + "<td class=\"green\">" + "&#x2705;" + "</td>"
-    elif robo_check == 0:
+    elif grad_check == 0:
         html_table = html_table + "<td class=\"red\">" + "&#10006;" + "</td>"
     else:
         html_table = html_table + "<td class=\"orange\">" + "&quest;" + "</td>"
 
     if head_check == 1:
+        html_table = html_table + "<td class=\"green\">" + "&#x2705;" + "</td>"
+    elif head_check == 0:
+        html_table = html_table + "<td class=\"red\">" + "&#10006;" + "</td>"
+    else:
+        html_table = html_table + "<td class=\"orange\">" + "&quest;" + "</td>"
+
+           
+    if robo_check == 1:
         html_table = html_table + "<td class=\"green\">" + "&#x2705;" + "</td>"
     elif robo_check == 0:
         html_table = html_table + "<td class=\"red\">" + "&#10006;" + "</td>"
@@ -92,34 +110,18 @@ for row in result:
 
     if vers_check == 1:
         html_table = html_table + "<td class=\"green\">" + "&#x2705;" + "</td>"
-    elif robo_check == 0:
+    elif vers_check == 0:
         html_table = html_table + "<td class=\"red\">" + "&#10006;" + "</td>"
     else:
         html_table = html_table + "<td class=\"orange\">" + "&quest;" + "</td>"
 
     if err_check == 1:
         html_table = html_table + "<td class=\"green\">" + "&#x2705;" + "</td>"
-    elif robo_check == 0:
+    elif err_check == 0:
         html_table = html_table + "<td class=\"red\">" + "&#10006;" + "</td>"
     else:
         html_table = html_table + "<td class=\"orange\">" + "&quest;" + "</td>"
 
-    if grad_check == 1:
-        html_table = html_table + "<td class=\"green\">" + "&#x2705;" + "</td>"
-    elif robo_check == 0:
-        html_table = html_table + "<td class=\"red\">" + "&#10006;" + "</td>"
-    else:
-        html_table = html_table + "<td class=\"orange\">" + "&quest;" + "</td>"
-
-    if grad_check == 1:
-        html_table = html_table + "<td class=\"green\">"
-    elif robo_check == 0:
-        html_table = html_table + "<td class=\"red\">"
-    else:
-        html_table = html_table + "<td class=\"orange\">"
-    vtgradelink = '<a href="https://www.ssllabs.com/ssltest/analyze.html?d=' + website + '&hideResults=on">' + grade + '</a>'
-    html_table = html_table + vtgradelink + "</td>"
-    # html_table = html_table + grade + "</td>"
 
     html_table = html_table + "<td>" + date_check + "</td>"
     html_table = html_table + "</td></tr>\n"
@@ -145,12 +147,12 @@ html_page = """
   <thead>
     <tr style="text-align: right;">
       <th>website</th>
-      <th>robots</th>
+      <th>grade</th>
+      <th>grade_check</th>
       <th>headers</th>
+      <th>robots</th>
       <th>version</th>
       <th>error</th>
-      <th>grade_check</th>
-      <th>grade</th>
       <th>check date</th>
     </tr>
   </thead>

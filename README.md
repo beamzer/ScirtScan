@@ -11,6 +11,14 @@ Python script to scan a list of websites with a number of checks:
 
 Information is stored in a Sqlite database and sql2html.py creates an index.html from that database
 
+## Requirements
+scirtscan.py assumes you have the following software in your path:
+> https://github.com/santoru/shcheck  
+> https://github.com/ssllabs/ssllabs-scan 
+
+Also see requirements.txt and as usual perform the following command to satisfy those:
+> pip3 install -r requirements.txt
+
 ## Input file
 The input file is required (-i) it takes the form of a list of website names, e.g. :
 > www.google.com  
@@ -18,12 +26,7 @@ The input file is required (-i) it takes the form of a list of website names, e.
 > www.apple.com  
 
 ## Output
-Output is generated in a newly created directory. The directory name is based on the date (YYYYMMDD). The output directory containss the sqlite file websites.db and the per website results log.
-
-## Requirements
-scirtscan.py assumes you have the following software in your path:
-> https://github.com/santoru/shcheck  
-> https://github.com/ssllabs/ssllabs-scan  
+Output is generated in a newly created directory. The directory name is based on the date (YYYYMMDD). The output directory containss the sqlite file websites.db and the per website results log. 
 
 ## Usage
 Run from the directory where the files are located:

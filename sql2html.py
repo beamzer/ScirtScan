@@ -117,8 +117,10 @@ for row in result:
         html_table = html_table + "<td class=\"red\">"
     else:
         html_table = html_table + "<td class=\"orange\">"
+    vtgradelink = '<a href="https://www.ssllabs.com/ssltest/analyze.html?d=' + website + '&hideResults=on">' + grade + '</a>'
+    html_table = html_table + vtgradelink + "</td>"
+    # html_table = html_table + grade + "</td>"
 
-    html_table = html_table + grade + "</td>"
     html_table = html_table + "<td>" + date_check + "</td>"
     html_table = html_table + "</td></tr>\n"
 

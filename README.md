@@ -51,8 +51,8 @@ The main python script (scirtscan.py) works with functions, you can easily comme
 ## How to obtain the list of websites for your company/institution
 Ideally you have a CMDB (Configuration Management Database) and with one press on the right button it spits out a list of all your websites. If you don't have that, i suggest you work on that inventory. In the meantime there are some other tricks that can help you:
 
-* Use [Shodan](https://www.shodan.io/) and query your ip-range
-* Use [Censys](https://censys.io/) and query your ip-range
+* Use [Shodan](https://www.shodan.io/){:target="_blank"} and query your ip-range
+* Use [Censys](https://censys.io/){:target="_blank"} and query your ip-range
 * Best option: use both to make sure you don't miss anything
 * [Subfinder](https://github.com/projectdiscovery/subfinder) and [httpx](https://github.com/projectdiscovery/httpx) are **GREAT** tools to help you discover sites based on ip-range or domain name, below are some examples:
 

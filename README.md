@@ -67,8 +67,9 @@ At the moment sql2html.py doesn't like it when fields in the database are empty.
 
 ## Upcoming features
 * A check for the presence of `.well-known/security.txt `
-* more output options (excel, pie-charts, ... ?)
+* A check for the precense of open directories
 * option for sql2html to tailor output to be put on a webserver
+* more output options (excel, pie-charts, ... ?)
 
 ## License and Disclaimer
 This software is licensed under GPL v3.0 as stated in [LICENSE](https://github.com/beamzer/ScirtScan/blob/main/LICENSE)

@@ -54,7 +54,7 @@ if not os.path.exists(filename):
     print(f"The file {filename} does not exist.")
     exit()
 
-debug and print(f"website will be read from: {filename}")
+debug and print(f"websites will be read from: {filename}")
 
 # Open the file with the websites to check
 try:
@@ -107,7 +107,7 @@ def header_check(website):
         output = json.dumps(data,indent=2)
 
 
-        outfile.write("\n===========HEADER CHECK\n")
+        outfile.write("\n===========Header Check\n")
         outfile.write(output + "\n")
 
         check = "OK"
@@ -323,8 +323,14 @@ def check_security_file(website):
     check_security_file = 0
     try:
         response = requests.get(f"https://{website}/.well-known/security.txt")
-        if response.status_code == 200:
+        if response.status_code >= 200 and response.status_code < 300:
             check_security_file = 1
+            outfile.write("\n===========Security.txt Check\n")
+            outfile.write("OK\n")
+            outfile.write(response.text)
+        else:
+            outfile.write("\n===========Security.txt Check\n")
+            outfile.write("NOK\n")
             
     except requests.exceptions.RequestException as e:
         print(f"An error occurred while checking the security file: {e}")
@@ -336,6 +342,11 @@ def check_security_file(website):
     except sqlite3.Error as error:
         print("Failed to insert data into table", error)
 
+
+
+
+
+############################################# Main code block #############################################
 for website in inlines:
     website = website.strip()
     myfile = directory_path + "/" + website + ".txt"
@@ -346,10 +357,14 @@ for website in inlines:
 
     debug and print("\n==========",url)
 
-    # alleen de website naam wegschrijven als primary key als er nog geen rij bestaat met die info
+    # only write the website name as primary key if there is no row with that info
     c.execute("INSERT INTO website_checks (websites) SELECT ? WHERE NOT EXISTS (SELECT 1 FROM website_checks WHERE websites = ?)", (website,website))
     c.execute("UPDATE website_checks SET check_date = ? WHERE websites = ?", (check_date, website))
     conn.commit()
+
+# Pro tip:
+# when you are modifying a function or adding another one, it's best to comment out all other functions 
+# untill it works the way you want. Or we can add other commandline arguments to you can specify it at runtime
 
     header_check(website)
     check_versioninfo(url)
@@ -359,6 +374,6 @@ for website in inlines:
     if not xqualys:
         check_ssl(url)
 
-
+# commit to all changes and close the sqlite database
 conn.commit()
 conn.close()

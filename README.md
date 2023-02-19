@@ -28,19 +28,22 @@ The input file is required it takes the form of a list of website names, e.g. :
 > www.you-get-the-gist.com  
 
 ## Output
-Output is generated in a newly created directory. The directory name is based on the date (YYYYMMDD). The output directory containss the sqlite file websites.db and the per website results log. 
+Output is generated in a newly created directory. The directory name is based on the date (YYYYMMDD). The output directory contains the sqlite file websites.db and the per website results log. 
 
 ## Usage
 Run from the directory where the files are located:
 > ./scirtscan.py -d websites.txt
 
-The qualys ssltest can take up some time. The default in the script is to specify usecache, so the second time you run the script it will just get the results from the cache. Optional you can specify -xq to skip the Qualys check, i.e.
+The qualys ssltest can take up some time. The default in the script is to specify usecache, so the second time you run the script it will just get the results from the cache. Optional you can specify -xq to skip the Qualys check, for instance:
 > ./scirtscan.py -d -xq websites.txt
 
 if all goes well this will create a directory with the name of todays date in the format YYYYMMDD. The sqlite database with all results and the per website debug log files will be stored in that directory. Next run:
 > ./sql2html.py -d
 
-And that will create an index.html in that directory. If you want to open that index file to view it in your browser and you're on a mac, type:
+And that will create an index.html in that directory. Default sql2html.py will read the directory with today's date and write the index.html there If you want to proces another directory, you can specify that with the -p (path) option, for instance:
+> ./sql2html.py -d -p 20221231
+
+If you want to open that index file to view it in your browser and you're on a mac, type:
 > open yyyymmdd/index.html (and yes, replace yyyymmdd with the current date)
 
 for linux use:

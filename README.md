@@ -43,7 +43,7 @@ And that will create an index.html in that directory. If you want to open that i
 for linux use:
 > xdg-open yyyymmdd/index.html
 
-If you want to put the files on a webserver, put the index.html one level up from the yyyymmdd directory so the links to the per website debug files still work. The file styles.css is used by sql2html.py to generate the index.html, so after that it's not used anymore.
+If you want to put the files on a webserver, copy the yyyymmdd directory(s) to the webserver root. The file styles.css is used by sql2html.py to generate the index.html, after that it's not used anymore.
 
 ## Structure
 The main python script (scirtscan.py) works with functions, you can easily comment out functions to test a single one, or add a new function for new checks. I will add an commandline option for this soon. 
@@ -71,7 +71,6 @@ probably, in fact almost certainly, please let me know
 ## Upcoming features
 * ~~A check for the presence of `.well-known/security.txt `~~
 * A check for the precense of open directories
-* option for sql2html to tailor output to be put on a webserver
 * more output options (excel, pie-charts, ... ?)
 
 ## License and Disclaimer

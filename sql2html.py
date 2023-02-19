@@ -156,7 +156,7 @@ html_page = """
 <!DOCTYPE html>
 <html>
 <head>
-    <title>My HTML Table</title>
+    <title>ScirtScan</title>
     <style>
     {}
     </style>
@@ -180,6 +180,10 @@ html_page = """
     {}
   </tbody>
   </table>
+  <br />
+  if the security.txt entry has a green checkbox, then it's a link you can click <br />
+  this table is generated with:<br />
+  <a class="white" href="https://github.com/beamzer/ScirtScan">https://github.com/beamzer/ScirtScan</a>
 </body>
 </html>
 """.format(css_styles, html_table)

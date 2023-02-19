@@ -66,10 +66,10 @@ These tools are used by bugbounty hunters as well, so why wait untill they come 
 You might not have access to a Linux server or a Mac to run this code. Oracle has an offer where you get access to two of it's cloud servers without cost and they claim this will be free forever. Of course these servers are limited in CPU and memory, but they are more than sufficient to run this code. You can sign up for the free tier on: [https://www.oracle.com/cloud/free/](https://www.oracle.com/cloud/free/)
 
 ## Bugs
-At the moment sql2html.py doesn't like it when fields in the database are empty. I will fix this.
+probably, in fact almost certainly, please let me know
 
 ## Upcoming features
-* A check for the presence of `.well-known/security.txt `
+* ~~A check for the presence of `.well-known/security.txt `~~
 * A check for the precense of open directories
 * option for sql2html to tailor output to be put on a webserver
 * more output options (excel, pie-charts, ... ?)

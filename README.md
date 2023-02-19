@@ -8,6 +8,7 @@ Python script to scan a list of websites with a number of checks:
 * HTTP headers check, certain headers should be present
 * HTTP headers check, no version information should be divulged
 * HTTP Error page, no product information and/of version information should be divulged
+* Presence of .well-known/security.txt see [https://securitytxt.org/](https://securitytxt.org/)
 
 Information is stored in a Sqlite database and sql2html.py creates an index.html from that database
 

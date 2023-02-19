@@ -51,6 +51,9 @@ for linux use:
 
 If you want to put the files on a webserver, copy the yyyymmdd directory(s) to the webserver root. The file styles.css is used by sql2html.py to generate the index.html, after that it's not used anymore.
 
+The webpage will look something like this:
+![](https://raw.githubusercontent.com/beamzer/ScirtScan/main/scirtscan-table.png)
+
 ## Structure
 The main python script (scirtscan.py) works with functions, you can easily comment out functions to test a single one, or add a new function for new checks. I will add an commandline option for this soon. 
 

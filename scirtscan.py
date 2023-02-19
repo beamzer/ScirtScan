@@ -29,13 +29,8 @@ parser.add_argument(
 parser.add_argument(
     '-i','--input',
     type=argparse.FileType('r'),
-     required=True,
+    required=True,
     default=sys.stdin
-)
-parser.add_argument(
-    '-o','--output',
-    type=argparse.FileType('w'),
-    default=sys.stdout
 )
 
 args = parser.parse_args()
@@ -47,24 +42,37 @@ debug and print("debug output activated")
 inlines = args.input.readlines()
 
 today = date.today()
-d1 = today.strftime("%Y%m%d")
-if not os.path.exists(d1):
+directory_path = today.strftime("%Y%m%d")
+if not os.path.exists(directory_path):
     try:
-        os.makedirs(d1)
+        os.makedirs(directory_path)
     except OSError as error:
         print(error)
 
-# Create a connection to the SQLite database
-mydb = d1 + "/" + "websites.db"
-conn = sqlite3.connect(mydb)
+# Connect to the SQLite database in the directory
+try:
+    conn = sqlite3.connect(os.path.join(directory_path, 'websites.db'))
+    debug and print(f"Connected to database {os.path.join(directory_path, 'websites.db')}.")
+except sqlite3.Error as e:
+    print(f"Error connecting to database: {e}")
+
 c = conn.cursor()
-debug and print("Succesfully connected to SQLite")
 
 # Create a table to store the check results
 c.execute('''CREATE TABLE IF NOT EXISTS website_checks
-             (websites TEXT PRIMARY KEY, robots_check INT, headers_check INT, version_check INT, error_check INT, grade TEXT, grade_check INT, check_date TEXT)''')
+            (websites TEXT PRIMARY KEY, 
+                robots_check INT, 
+                headers_check INT, 
+                version_check INT, 
+                error_check INT, 
+                grade TEXT, 
+                grade_check INT, 
+                check_date TEXT,
+                security_txt INT
+            )''')
 
 
+# this will check that certain headers are present
 def header_check(website):
     try:
         url = 'https://' + website
@@ -107,6 +115,8 @@ def header_check(website):
     except OSError as error:
         print(error)
 
+# this is a very rudimentary check to see if version numbers are present in the HTTP headers
+# at the moment this is purely done by looking for numbers in the HTTP server or x-generator header field
 def check_versioninfo(url):
     try:
         r = requests.head(url, allow_redirects=True, timeout=2)
@@ -117,6 +127,11 @@ def check_versioninfo(url):
             else:
                 result = "OK"
                 check_version = 1
+
+        if 'x-generator' in r.headers:
+            if re.match(r".*[0-9].*", r.headers['x-generator']):
+                result = "NOK"
+                check_version = 0
 
         # output = process.stdout.decode()
         outfile.write("\n===========Version Info CHECK\n")
@@ -138,6 +153,8 @@ def check_versioninfo(url):
     except OSError as error:
         print(error)
 
+# this check will verify that robots.txt only contains allow statements, since disallow statements give away 
+# interesting information to hackers
 def robots_check(url):
     try:
         check = "NOK"
@@ -270,10 +287,26 @@ def check_ssl(url):
     except OSError as error:
         print(error)
 
+def check_security_file(website):
+    check_security_file = 0
+    try:
+        response = requests.get(f"https://{website}/.well-known/security.txt")
+        if response.status_code == 200:
+            check_security_file = 1
+            
+    except requests.exceptions.RequestException as e:
+        print(f"An error occurred while checking the security file: {e}")
+
+    try:
+        c.execute("UPDATE website_checks SET security_txt = ? WHERE websites = ?", (check_security_file, website))
+        conn.commit()
+        debug and print("security.txt check, record inserted into website_checks ", check_security_file)
+    except sqlite3.Error as error:
+        print("Failed to insert data into table", error)
 
 for website in inlines:
     website = website.strip()
-    myfile = d1 + "/" + website + ".txt"
+    myfile = directory_path + "/" + website + ".txt"
     url = 'https://' + website.strip()
     outfile = open(myfile, "w")
     check_date = datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
@@ -286,11 +319,13 @@ for website in inlines:
     c.execute("UPDATE website_checks SET check_date = ? WHERE websites = ?", (check_date, website))
     conn.commit()
 
-    security_headers = header_check(website)
-    version_info = check_versioninfo(url)
-    error_check_result = error_check(url)
-    check_robots = robots_check(url)
-    ssl_config = check_ssl(url)
+    header_check(website)
+    check_versioninfo(url)
+    error_check(url)
+    robots_check(url)
+    check_security_file(website)
+    check_ssl(url)
+
 
 conn.commit()
 conn.close()

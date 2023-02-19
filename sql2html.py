@@ -51,7 +51,17 @@ except sqlite3.Error as e:
     print(f"Error connecting to database: {e}")
 
 # Query the database and store the results in a dataframe
-sql_query = ("SELECT websites, robots_check, headers_check, version_check, error_check, grade, grade_check, check_date FROM website_checks")
+sql_query = ("SELECT websites, "
+             "robots_check, "
+             "headers_check, "
+             "version_check, "
+             "error_check, "
+             "grade, "
+             "grade_check, "
+             "check_date, "
+             "security_txt "
+             "FROM website_checks")
+
 cs = conn.cursor()
 try:
     cs.execute(sql_query)
@@ -68,7 +78,8 @@ for row in result:
     grade = row[5]
     grad_check = row[6]
     date_check = row[7]
-    debug and print(date_check, website, robo_check, head_check, vers_check, err_check, grad_check, grade)
+    security_txt = row[8]
+    debug and print(date_check, website, robo_check, head_check, vers_check, err_check, grad_check, grade, security_txt)
  
     # debugfile = dir + "/" + website + ".txt"
     debugfile = website + ".txt"
@@ -96,6 +107,14 @@ for row in result:
     if head_check == 1:
         html_table = html_table + "<td class=\"green\">" + "&#x2705;" + "</td>"
     elif head_check == 0:
+        html_table = html_table + "<td class=\"red\">" + "&#10006;" + "</td>"
+    else:
+        html_table = html_table + "<td class=\"orange\">" + "&quest;" + "</td>"
+
+    if security_txt == 1:
+        sectxtlink = '<a href="https://' + website +'/.well-known/security.txt">' + "&#x2705;" + "</a>"
+        html_table = html_table + "<td class=\"green\">" + sectxtlink + "</td>"
+    elif security_txt == 0:
         html_table = html_table + "<td class=\"red\">" + "&#10006;" + "</td>"
     else:
         html_table = html_table + "<td class=\"orange\">" + "&quest;" + "</td>"
@@ -150,6 +169,7 @@ html_page = """
       <th>grade</th>
       <th>grade_check</th>
       <th>headers</th>
+      <th>security.txt</th>
       <th>robots</th>
       <th>version</th>
       <th>error</th>

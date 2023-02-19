@@ -62,6 +62,9 @@ Ideally you have a CMDB (Configuration Management Database) and with one press o
  
 These tools are used by bugbounty hunters as well, so why wait untill they come knocking with results that you would have liked to find out yourself? On the other hand, laws vary per country so use these tools and the software in this repository in accordance with local law and company policy.
 
+## Oracle free tier
+You might not have access to a Linux server or a Mac to run this code. Oracle has an offer where you get access to two of it's cloud servers without cost and they claim this will be free forever. Of course these servers are limited in CPU and memory, but they are more than sufficient to run this code. You can sign up for the free tier on: [https://www.oracle.com/cloud/free/](https://www.oracle.com/cloud/free/)
+
 ## Bugs
 At the moment sql2html.py doesn't like it when fields in the database are empty. I will fix this.
 

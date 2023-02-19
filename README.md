@@ -22,7 +22,7 @@ Also see requirements.txt and as usual perform the following command to satisfy 
 (or use your OS package management tools)
 
 ## Input file
-The input file is required (-i) it takes the form of a list of website names, e.g. :
+The input file is required it takes the form of a list of website names, e.g. :
 > www.some-boring-website.com  
 > www.another-dull-website.com  
 > www.you-get-the-gist.com  
@@ -32,7 +32,10 @@ Output is generated in a newly created directory. The directory name is based on
 
 ## Usage
 Run from the directory where the files are located:
-> ./scirtscan.py -d -i websites.txt
+> ./scirtscan.py -d websites.txt
+
+The qualys ssltest can take up some time. The default in the script is to specify usecache, so the second time you run the script it will just get the results from the cache. Optional you can specify -xq to skip the Qualys check, i.e.
+> ./scirtscan.py -d -xq websites.txt
 
 if all goes well this will create a directory with the name of todays date in the format YYYYMMDD. The sqlite database with all results and the per website debug log files will be stored in that directory. Next run:
 > ./sql2html.py -d

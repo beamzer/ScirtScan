@@ -90,11 +90,13 @@ for row in result:
 
     if grad_check == 1:
         html_table = html_table + "<td class=\"white\">"   # white for better readability
+        vtgradelink = '<a href="https://www.ssllabs.com/ssltest/analyze.html?d=' + website + '&hideResults=on">' + grade + '</a>'
     elif grad_check == 0:
         html_table = html_table + "<td class=\"red\">"
+        vtgradelink = '<a href="https://www.ssllabs.com/ssltest/analyze.html?d=' + website + '&hideResults=on">' + grade + '</a>'
     else:
         html_table = html_table + "<td class=\"orange\">"
-    vtgradelink = '<a href="https://www.ssllabs.com/ssltest/analyze.html?d=' + website + '&hideResults=on">' + grade + '</a>'
+        vtgradelink = "<b>&quest;</b>"
     html_table = html_table + vtgradelink + "</td>"
 
     if grad_check == 1:
@@ -102,14 +104,14 @@ for row in result:
     elif grad_check == 0:
         html_table = html_table + "<td class=\"red\">" + "&#10006;" + "</td>"
     else:
-        html_table = html_table + "<td class=\"orange\">" + "&quest;" + "</td>"
+        html_table = html_table + "<td class=\"orange\">" + "<b>&quest;</b>" + "</td>"
 
     if head_check == 1:
         html_table = html_table + "<td class=\"green\">" + "&#x2705;" + "</td>"
     elif head_check == 0:
         html_table = html_table + "<td class=\"red\">" + "&#10006;" + "</td>"
     else:
-        html_table = html_table + "<td class=\"orange\">" + "&quest;" + "</td>"
+        html_table = html_table + "<td class=\"orange\">" + "<b>&quest;</b>" + "</td>"
 
     if security_txt == 1:
         sectxtlink = '<a href="https://' + website +'/.well-known/security.txt">' + "&#x2705;" + "</a>"
@@ -117,7 +119,7 @@ for row in result:
     elif security_txt == 0:
         html_table = html_table + "<td class=\"red\">" + "&#10006;" + "</td>"
     else:
-        html_table = html_table + "<td class=\"orange\">" + "&quest;" + "</td>"
+        html_table = html_table + "<td class=\"orange\">" + "<b>&quest;</b>" + "</td>"
 
            
     if robo_check == 1:
@@ -125,21 +127,21 @@ for row in result:
     elif robo_check == 0:
         html_table = html_table + "<td class=\"red\">" + "&#10006;" + "</td>"
     else:
-        html_table = html_table + "<td class=\"orange\">" + "&quest;" + "</td>"
+        html_table = html_table + "<td class=\"orange\">" + "<b>&quest;</b>" + "</td>"
 
     if vers_check == 1:
         html_table = html_table + "<td class=\"green\">" + "&#x2705;" + "</td>"
     elif vers_check == 0:
         html_table = html_table + "<td class=\"red\">" + "&#10006;" + "</td>"
     else:
-        html_table = html_table + "<td class=\"orange\">" + "&quest;" + "</td>"
+        html_table = html_table + "<td class=\"orange\">" + "<b>&quest;</b>" + "</td>"
 
     if err_check == 1:
         html_table = html_table + "<td class=\"green\">" + "&#x2705;" + "</td>"
     elif err_check == 0:
         html_table = html_table + "<td class=\"red\">" + "&#10006;" + "</td>"
     else:
-        html_table = html_table + "<td class=\"orange\">" + "&quest;" + "</td>"
+        html_table = html_table + "<td class=\"orange\">" + "<b>&quest;</b>" + "</td>"
 
 
     html_table = html_table + "<td>" + date_check + "</td>"

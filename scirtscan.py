@@ -27,19 +27,44 @@ parser.add_argument(
 )
 
 parser.add_argument(
-    '-i','--input',
-    type=argparse.FileType('r'),
-    required=True,
-    default=sys.stdin
+    '-xq','--exclude_qualys',
+    action='store_true',
+    help='exclude qualys ssltest from checks'
+)
+
+parser.add_argument(
+    'filename', 
+    metavar='FILENAME', 
+    type=str,
+    help='filename with list op websites'
 )
 
 args = parser.parse_args()
 debug = args.debug
-
 debug and print("debug output activated")
 
+xqualys = args.exclude_qualys
+if xqualys:
+    debug and print("skipping qualys ssltest")
+
+filename = args.filename
+
+# Check if the file exists
+if not os.path.exists(filename):
+    print(f"The file {filename} does not exist.")
+    exit()
+
+debug and print(f"website will be read from: {filename}")
+
+# Open the file with the websites to check
+try:
+    with open(filename, 'r') as file:
+        inlines = file.readlines()
+except IOError as e:
+    print(f"Error opening file: {e}")
+
 #debug and print("input file = ", args.input)
-inlines = args.input.readlines()
+#inlines = args.input.readlines()
 
 today = date.today()
 directory_path = today.strftime("%Y%m%d")
@@ -212,6 +237,8 @@ def robots_check(url):
         print(error)
 
 
+# the error check tries to verify that there is no product information or version numbers in the HTTP error page
+# production websites should serve a clean error page and test websites should nog be open from the Internet
 def error_check(url):
     try:
 
@@ -253,6 +280,10 @@ def error_check(url):
     except OSError as error:
         print(error)
 
+# This checks that the website has an A+ grade on the Qualys SSLtest
+# by requiring an A+ score out security policy is future proof, since Qualys will modify the grading scores when certain
+# algorithms are not safe to use anymore.
+# Maybe your policy requires an other SSL/TLS check, you can easily cater for that by defining and using your own check function
 def check_ssl(url):
     try:
         response = subprocess.run(['ssllabs-scan-v3','-quiet','-usecache',url], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -270,7 +301,7 @@ def check_ssl(url):
         json_formatted_str = json.dumps(data, indent=2)
         outfile.write(json_formatted_str)
 
-        regexp = re.compile(r'A')
+        regexp = re.compile(r'A+')
         if regexp.search(grade):
             check_score = 1
         else:
@@ -287,6 +318,7 @@ def check_ssl(url):
     except OSError as error:
         print(error)
 
+# CVD (Coordinated Vulnerability Disclosure) requires security contact information to be present on this URL
 def check_security_file(website):
     check_security_file = 0
     try:
@@ -324,7 +356,8 @@ for website in inlines:
     error_check(url)
     robots_check(url)
     check_security_file(website)
-    check_ssl(url)
+    if not xqualys:
+        check_ssl(url)
 
 
 conn.commit()

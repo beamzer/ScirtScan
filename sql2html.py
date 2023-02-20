@@ -50,7 +50,24 @@ try:
 except sqlite3.Error as e:
     print(f"Error connecting to database: {e}")
 
-# Query the database and store the results in a dataframe
+# Define the HTML table headers as a list, in the order they should appear on the webpage
+table_headers = ['website', 
+                 'grade', 
+                 'grade_check', 
+                 'headers', 
+                 'security.txt', 
+                 'robots.txt', 
+                 'version', 
+                 'error', 
+                 'check date']
+
+# Using a loop to construct the header row
+header_row = '<tr style="text-align: right;">'
+for header in table_headers:
+    header_row += f'<th>{header}</th>'
+header_row += '</tr>'
+
+# Query the database website_checks and store the results in a dataframe
 sql_query = ("SELECT websites, "
              "robots_check, "
              "headers_check, "
@@ -68,6 +85,7 @@ try:
     result = cs.fetchall()
 except sqlite3.Error as error:
     print("Failed to fetch data from websites.db", error)
+
 for row in result:
     debug and print(row)
     website = row[0]
@@ -153,7 +171,7 @@ conn.close()
 with open('styles.css', 'r') as f:
     css_styles = f.read()
     
-# Create the complete HTML page
+# Create the complete HTML page, the {} below will be replaced with the content of the variables at the end
 html_page = """
 <!DOCTYPE html>
 <html>
@@ -166,17 +184,7 @@ html_page = """
 <body>
     <table border="1" class="dataframe mystyle" id="table">
   <thead>
-    <tr style="text-align: right;">
-      <th>website</th>
-      <th>grade</th>
-      <th>grade_check</th>
-      <th>headers</th>
-      <th>security.txt</th>
-      <th>robots</th>
-      <th>version</th>
-      <th>error</th>
-      <th>check date</th>
-    </tr>
+    {}
   </thead>
   <tbody>
     {}
@@ -188,7 +196,7 @@ html_page = """
   <a class="white" href="https://github.com/beamzer/ScirtScan">https://github.com/beamzer/ScirtScan</a>
 </body>
 </html>
-""".format(css_styles, html_table)
+""".format(css_styles, header_row, html_table)
 
 myindex = directory_path + "/" + "index.html"
 try:

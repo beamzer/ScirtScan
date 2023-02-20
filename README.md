@@ -1,7 +1,9 @@
 # ScirtScan
-## This is work in progress, your mileage may vary
+## Attack Surface Reduction and Compliance Scan  
 
-Python script to scan a list of websites with a number of checks:
+### This is work in progress, changes happen fast, your mileage may vary
+
+This tool takes a list of websites and performs the following checks:
 
 * TLS/SSL check based on the Qualys SSL Scanner
 * precense of robots.txt with only Allow statements
@@ -10,7 +12,9 @@ Python script to scan a list of websites with a number of checks:
 * HTTP Error page, no product information and/of version information should be divulged
 * Presence of .well-known/security.txt see [https://securitytxt.org/](https://securitytxt.org/)
 
-Information is stored in a Sqlite database and sql2html.py creates an index.html from that database
+Information is stored in a Sqlite database and sql2html.py creates an nice index.html from that database
+All checks have debug logging which is stored in the output directory in a per website name, 
+this can be usefull to review the status at a certain point in time.
 
 ## Requirements
 scirtscan.py assumes you have the following software in your path:

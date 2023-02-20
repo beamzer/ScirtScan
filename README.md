@@ -12,7 +12,7 @@ This tool takes a list of websites and performs the following checks:
 * HTTP Error page, no product information and/of version information should be divulged
 * Presence of .well-known/security.txt see [https://securitytxt.org/](https://securitytxt.org/)
 
-Information is stored in a Sqlite database and sql2html.py creates an nice index.html from that database
+Information is stored in a Sqlite database and sql2html.py creates an nice index.html from that database.  
 All checks have debug logging which is stored in the output directory in a per website name, 
 this can be usefull to review the status at a certain point in time.
 

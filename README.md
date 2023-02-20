@@ -1,7 +1,7 @@
 # ScirtScan
 ## Attack Surface Reduction and Compliance Scan  
 
-### This is work in progress, changes happen fast, your mileage may vary
+> N.B. This is work in progress, changes happen fast, your mileage may vary
 
 This tool takes a list of websites and performs the following checks:
 

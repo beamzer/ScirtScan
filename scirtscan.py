@@ -7,11 +7,16 @@ import requests
 import re
 import sys
 import time
+import ssl
+import socket
 from bs4 import BeautifulSoup
 import datetime
+#from datetime import date, datetime, timedelta
 from datetime import date
 import subprocess
 from subprocess import Popen
+
+version = "v1.2, 20230226"
 
 current_time = datetime.datetime.now()
 #
@@ -27,6 +32,12 @@ parser.add_argument(
 )
 
 parser.add_argument(
+    '-v','--version',
+    action='store_true',
+    help='show version info and exit'
+)
+
+parser.add_argument(
     '-xq','--exclude_qualys',
     action='store_true',
     help='exclude qualys ssltest from checks'
@@ -36,10 +47,20 @@ parser.add_argument(
     'filename', 
     metavar='FILENAME', 
     type=str,
-    help='filename with list op websites'
+    nargs='?', 
+    const=None,
+    help='filename with list of websites'
 )
 
 args = parser.parse_args()
+
+if not args.filename and args.version:
+    sys.exit(f"version: {version}")
+
+if args.filename is None:
+    parser.print_help()
+    sys.exit("ERROR: missing FILENAME")
+
 debug = args.debug
 debug and print("debug output activated")
 
@@ -51,8 +72,7 @@ filename = args.filename
 
 # Check if the file exists
 if not os.path.exists(filename):
-    print(f"The file {filename} does not exist.")
-    exit()
+    sys.exit(f"The file {filename} does not exist.")
 
 debug and print(f"websites will be read from: {filename}")
 
@@ -83,7 +103,8 @@ except sqlite3.Error as e:
 
 c = conn.cursor()
 
-# Create a table to store the check results
+# Create a table to store the check results, most checks will store a boolean, 1 for OK and 0 for FAIL
+# only grade will contain a letter, because Qualys ssltest uses A-F or T for scores, apended with +'s & -'s
 c.execute('''CREATE TABLE IF NOT EXISTS website_checks
             (websites TEXT PRIMARY KEY, 
                 robots_check INT, 
@@ -97,7 +118,11 @@ c.execute('''CREATE TABLE IF NOT EXISTS website_checks
             )''')
 
 
-# this will check that certain headers are present
+###########################################################################################################
+# function to check that certain security headers are present in the HTTP header
+# we'll use https://github.com/santoru/shcheck for this, because why reinvent the wheel when there is allready
+# a perfect program for this.
+
 def header_check(website):
     try:
         url = 'https://' + website
@@ -140,18 +165,19 @@ def header_check(website):
     except OSError as error:
         print(error)
 
+###########################################################################################################
 # this is a very rudimentary check to see if version numbers are present in the HTTP headers
 # at the moment this is purely done by looking for numbers in the HTTP server or x-generator header field
 def check_versioninfo(url):
-    try:
+    try: 
+        result = "OK"       # we'll assume OK unless proven otherwise
+        check_version = 1
+
         r = requests.head(url, allow_redirects=True, timeout=2)
         if 'server' in r.headers:
             if re.match(r".*[0-9].*", r.headers['server']):
                 result = "NOK"
                 check_version = 0
-            else:
-                result = "OK"
-                check_version = 1
 
         if 'x-generator' in r.headers:
             if re.match(r".*[0-9].*", r.headers['x-generator']):
@@ -178,6 +204,7 @@ def check_versioninfo(url):
     except OSError as error:
         print(error)
 
+###########################################################################################################
 # this check will verify that robots.txt only contains allow statements, since disallow statements give away 
 # interesting information to hackers
 def robots_check(url):
@@ -237,6 +264,7 @@ def robots_check(url):
         print(error)
 
 
+###########################################################################################################
 # the error check tries to verify that there is no product information or version numbers in the HTTP error page
 # production websites should serve a clean error page and test websites should nog be open from the Internet
 def error_check(url):
@@ -280,6 +308,7 @@ def error_check(url):
     except OSError as error:
         print(error)
 
+###########################################################################################################
 # This checks that the website has an A+ grade on the Qualys SSLtest
 # by requiring an A+ score out security policy is future proof, since Qualys will modify the grading scores when certain
 # algorithms are not safe to use anymore.
@@ -318,6 +347,7 @@ def check_ssl(url):
     except OSError as error:
         print(error)
 
+###########################################################################################################
 # CVD (Coordinated Vulnerability Disclosure) requires security contact information to be present on this URL
 def check_security_file(website):
     check_security_file = 0
@@ -342,6 +372,42 @@ def check_security_file(website):
     except sqlite3.Error as error:
         print("Failed to insert data into table", error)
 
+
+###########################################################################################################
+# SSL/TLS Certificate Check by ChatGPT: https://sharegpt.com/c/xHQQv9k
+#
+def check_ssl_certificate_validity(website):
+    # Add the https protocol to the website name
+    website_url = "https://" + website
+
+    try:
+        # Establish a secure connection to the website and retrieve its SSL certificate information
+        cert = ssl.get_server_certificate((website_name, 443))
+
+        # Verify the certificate
+        context = ssl.create_default_context()
+        context.check_hostname = True
+        context.verify_mode = ssl.CERT_REQUIRED
+
+        # Create a socket and wrap it with an SSL context
+        with socket.create_connection((website_name, 443)) as sock:
+            with context.wrap_socket(sock, server_hostname=website) as ssock:
+                # Get the certificate information
+                cert_info = ssock.getpeercert()
+
+        # Get the expiration date of the certificate
+        cert_expiration = datetime.strptime(cert_info['notAfter'], '%b %d %H:%M:%S %Y %Z')
+
+        # Check if the certificate is going to expire within the next 30 days
+        if cert_expiration - datetime.now() < timedelta(days=30):
+            return False
+
+        # If the certificate is valid, return True
+        return True
+
+    except ssl.SSLError:
+        # If the certificate is invalid, return False
+        return False
 
 
 

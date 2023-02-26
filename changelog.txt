@@ -1,0 +1,14 @@
+Changelog for ScirtScan
+
+v1.3, upcoming
+	* will add a check to see if the website certificate is valid and if it's going to expire in x days
+
+v1.2, 20230226
+	* scirtscan.py, added option to view version info (-v, --view)
+	* added sql2excel.py to create a excel file from websites.db
+	* added requirements_sql2excel.txt if you want to use sql2excel.py
+	* added changelog.txt
+
+v1.1 20230220
+	* scirtscan.py, added check for .well-known/security.txt as per rfc9116
+	* sql2html.py, added support for the security.txt check

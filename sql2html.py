@@ -22,7 +22,7 @@ parser.add_argument(
 parser.add_argument(
     '-p', '--path', 
     type=str, 
-    help='The directory path, if not given will assume the directory with todays date: YYYYMMDD'
+    help=f'The directory path, if not given will assume the directory with todays date: {dir}'
     )
 
 args = parser.parse_args()

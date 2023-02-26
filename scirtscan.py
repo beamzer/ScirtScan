@@ -15,8 +15,9 @@ import datetime
 from datetime import date
 import subprocess
 from subprocess import Popen
+import dns.resolver
 
-version = "v1.2, 20230226"
+version = "v1.2a, 20230226"
 
 current_time = datetime.datetime.now()
 #
@@ -119,15 +120,57 @@ c.execute('''CREATE TABLE IF NOT EXISTS website_checks
 
 
 ###########################################################################################################
+# if the website name doesn't resolve we can skip the other checks
+def check_dns(website):
+    debug and print(f"=== check_dns {website}")
+    outfile.write("\n===========DNS Check\n")
+    try:
+        ipv4_answers = dns.resolver.resolve(website, 'A')
+        for answer in ipv4_answers:
+            debug and print(answer.address)
+            outfile.write(answer.address + "\n")
+
+        try:
+            ipv6_answers = dns.resolver.resolve(website, 'AAAA')
+            for answer in ipv6_answers:
+                debug and print(answer.address)
+                outfile.write(answer.address + "\n")
+        except dns.resolver.NoAnswer:
+                debug and print ("no IPv6 addresses")  
+
+        cname_answers = dns.resolver.resolve(website, 'CNAME')
+        for answer in cname_answers:
+            debug and print(f"cname: {answer.target.to_text()}")
+            outfile.write("cname: " + answer.target.to_text() + "\n")
+            
+    except dns.resolver.NXDOMAIN:
+        debug and print("NXDOMAIN; Website {website} not found")
+        outfile.write("NXDOMAIN; Website {website} not found")
+        return False
+    return True
+
+###########################################################################################################
 # function to check that certain security headers are present in the HTTP header
 # we'll use https://github.com/santoru/shcheck for this, because why reinvent the wheel when there is allready
 # a perfect program for this.
-
 def header_check(website):
+    debug and print(f"=== header_check {website}")
     try:
         url = 'https://' + website
-        process = subprocess.run(['shcheck.py',"-j", url], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        try:
+            process = subprocess.run(['shcheck.py',"-j", "-d", url], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        except OSError as e:
+            print(f"shcheck didn't like that: {e}")
+
         output = process.stdout.decode()
+        debug and print(f"shcheck stdout: {output}")
+        err = process.stderr.decode()
+        debug and print(f"shcheck stderr: {err}")
+
+        if "URL Returned an HTTP error:" in output:
+            print("ERR: looks like this is a dead-end street, bailing out of header_check")
+            return
+
         data = json.loads(output)
         output = json.dumps(data,indent=2)
 
@@ -169,6 +212,7 @@ def header_check(website):
 # this is a very rudimentary check to see if version numbers are present in the HTTP headers
 # at the moment this is purely done by looking for numbers in the HTTP server or x-generator header field
 def check_versioninfo(url):
+    debug and print(f"=== check_versioninfo {url}")
     try: 
         result = "OK"       # we'll assume OK unless proven otherwise
         check_version = 1
@@ -208,6 +252,7 @@ def check_versioninfo(url):
 # this check will verify that robots.txt only contains allow statements, since disallow statements give away 
 # interesting information to hackers
 def robots_check(url):
+    debug and print(f"=== robots_check {url}")
     try:
         check = "NOK"
 
@@ -268,6 +313,7 @@ def robots_check(url):
 # the error check tries to verify that there is no product information or version numbers in the HTTP error page
 # production websites should serve a clean error page and test websites should nog be open from the Internet
 def error_check(url):
+    debug and print(f"=== error_check {url}")
     try:
 
         my_url = url + "/sdfsffe978hjcf65"  # random url which will generate a 404 on the webserver
@@ -314,6 +360,7 @@ def error_check(url):
 # algorithms are not safe to use anymore.
 # Maybe your policy requires an other SSL/TLS check, you can easily cater for that by defining and using your own check function
 def check_ssl(url):
+    debug and print(f"=== check_ssl {url}")
     try:
         response = subprocess.run(['ssllabs-scan-v3','-quiet','-usecache',url], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         check_result = response.stdout.decode()
@@ -350,6 +397,7 @@ def check_ssl(url):
 ###########################################################################################################
 # CVD (Coordinated Vulnerability Disclosure) requires security contact information to be present on this URL
 def check_security_file(website):
+    debug and print(f"=== check_security_file {website}")
     check_security_file = 0
     try:
         response = requests.get(f"https://{website}/.well-known/security.txt")
@@ -377,6 +425,7 @@ def check_security_file(website):
 # SSL/TLS Certificate Check by ChatGPT: https://sharegpt.com/c/xHQQv9k
 #
 def check_ssl_certificate_validity(website):
+    debug and print(f"=== check_ssl_certificate_validity {website}")
     # Add the https protocol to the website name
     website_url = "https://" + website
 
@@ -417,7 +466,11 @@ for website in inlines:
     website = website.strip()
     myfile = directory_path + "/" + website + ".txt"
     url = 'https://' + website.strip()
-    outfile = open(myfile, "w")
+    try:
+        outfile = open(myfile, "w")
+    except OSError as e:
+        sys.exit(f"Error trying to open {myfile}: {e}")
+
     check_date = datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
     outfile.write(website + " check performed on: " + check_date + "\n")
 
@@ -432,13 +485,19 @@ for website in inlines:
 # when you are modifying a function or adding another one, it's best to comment out all other functions 
 # untill it works the way you want. Or we can add other commandline arguments to you can specify it at runtime
 
-    header_check(website)
-    check_versioninfo(url)
-    error_check(url)
-    robots_check(url)
-    check_security_file(website)
-    if not xqualys:
-        check_ssl(url)
+    if check_dns(website):
+        try:
+            header_check(website)
+            check_versioninfo(url)
+            error_check(url)
+            robots_check(url)
+            check_security_file(website)
+            if not xqualys:
+                check_ssl(url)
+        except KeyboardInterrupt:
+            sys.exit("as you wish, aborting...")
+        except OSError as e:
+            sys.exit(f"Oops, scirtscan.py made a booboo: {e}")
 
 # commit to all changes and close the sqlite database
 conn.commit()

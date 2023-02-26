@@ -3,11 +3,22 @@ Changelog for ScirtScan
 v1.3, upcoming
 	* will add a check to see if the website certificate is valid and if it's going to expire in x days
 
+v1.2a, 20230226
+	* scirtscan.py bugfix where shcheck.py would not return json because
+	of a HTTP 5xx or an invalid certificate, this error is now caught and
+	properly dealt with
+	* scirtscan.py addition of check_dns function to validate that a
+	website name from the list resolves or otherwise move on to the next
+	one, because of the use of dnspython for this, requirements.txt is
+	also updated. The DNS info is also written to the per-website log file
+	so you can check if this info changes over time, as long as you keep
+	that information
+
 v1.2, 20230226
 	* scirtscan.py, added option to view version info (-v, --view)
 	* added sql2excel.py to create a excel file from websites.db
 	* added requirements_sql2excel.txt if you want to use sql2excel.py
-	* added changelog.txt
+	* added changelog.txt (this file)
 
 v1.1 20230220
 	* scirtscan.py, added check for .well-known/security.txt as per rfc9116

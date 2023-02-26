@@ -202,7 +202,7 @@ def header_check(website):
         try:
             c.execute("UPDATE website_checks SET headers_check = ? WHERE websites = ?", (check_header, website))
             conn.commit()
-            debug and print("header_check, record inserted into website_checks ", check_header)
+            debug and print("record inserted into website_checks ", check_header)
         except sqlite3.Error as error:
             print("Failed to insert data into table", error)
 
@@ -242,7 +242,7 @@ def check_versioninfo(url):
         try:
             c.execute("UPDATE website_checks SET version_check = ? WHERE websites = ?", (check_version, website))
             conn.commit()
-            debug and print("check_versioninfo, record inserted into website_checks ", check_version)
+            debug and print("record inserted into website_checks ", check_version)
         except sqlite3.Error as error:
             print("Failed to insert data into table", error)
 
@@ -302,7 +302,7 @@ def robots_check(url):
         try:
             c.execute("UPDATE website_checks SET robots_check = ? WHERE websites = ?", (check_robots, website))
             conn.commit()
-            debug and print("robots_check, record inserted into website_checks ", check_robots)
+            debug and print("record inserted into website_checks ", check_robots)
         except sqlite3.Error as error:
             print("Failed to insert data into table", error)
 
@@ -350,7 +350,7 @@ def error_check(url):
         try:
             c.execute("UPDATE website_checks SET error_check = ? WHERE websites = ?", (check_error, website))
             conn.commit()
-            debug and print("error_check, record inserted into website_checks ", check_error)
+            debug and print("record inserted into website_checks ", check_error)
         except sqlite3.Error as error:
             print("Failed to insert data into table", error)
     except KeyboardInterrupt:
@@ -390,7 +390,7 @@ def check_ssl(url):
         try:
             c.execute("UPDATE website_checks SET grade = ?, grade_check = ? WHERE websites = ?", (grade,check_score, website))
             conn.commit()
-            debug and print("check_ssl, record inserted into website_checks ", grade, check_score)
+            debug and print("record inserted into website_checks ", grade, check_score)
         except sqlite3.Error as error:
             print("Failed to insert data into table", error)
     except KeyboardInterrupt:
@@ -420,7 +420,7 @@ def check_security_file(website):
     try:
         c.execute("UPDATE website_checks SET security_txt = ? WHERE websites = ?", (check_security_file, website))
         conn.commit()
-        debug and print("security.txt check, record inserted into website_checks ", check_security_file)
+        debug and print("record inserted into website_checks ", check_security_file)
     except sqlite3.Error as error:
         print("Failed to insert data into table", error)
 

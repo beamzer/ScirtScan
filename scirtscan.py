@@ -138,11 +138,15 @@ def check_dns(website):
         except dns.resolver.NoAnswer:
                 debug and print ("no IPv6 addresses")  
 
-        cname_answers = dns.resolver.resolve(website, 'CNAME')
-        for answer in cname_answers:
-            debug and print(f"cname: {answer.target.to_text()}")
-            outfile.write("cname: " + answer.target.to_text() + "\n")
-            
+        try:
+            cname_answers = dns.resolver.resolve(website, 'CNAME')
+            for answer in cname_answers:
+                debug and print(f"cname: {answer.target.to_text()}")
+                outfile.write("cname: " + answer.target.to_text() + "\n")
+        except dns.resolver.NoAnswer:
+                debug and print ("no CNAMEs")
+                outfile.write("no CNAMEs")
+
     except dns.resolver.NXDOMAIN:
         debug and print("NXDOMAIN; Website {website} not found")
         outfile.write("NXDOMAIN; Website {website} not found")
@@ -163,9 +167,9 @@ def header_check(website):
             print(f"shcheck didn't like that: {e}")
 
         output = process.stdout.decode()
-        debug and print(f"shcheck stdout: {output}")
-        err = process.stderr.decode()
-        debug and print(f"shcheck stderr: {err}")
+        # debug and print(f"shcheck stdout: {output}")
+        # err = process.stderr.decode()
+        # debug and print(f"shcheck stderr: {err}")
 
         if "URL Returned an HTTP error:" in output:
             print("ERR: looks like this is a dead-end street, bailing out of header_check")

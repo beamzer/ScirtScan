@@ -10,7 +10,9 @@ This tool takes a list of websites and performs the following checks:
 * HTTP headers check, certain headers should be present
 * HTTP headers check, no version information should be divulged
 * HTTP Error page, no product information and/of version information should be divulged
+* Check on redirects from HTTP to HTTPS
 * Presence of .well-known/security.txt see [https://securitytxt.org/](https://securitytxt.org/)
+* Check on Cerificate validity lifetime left
 
 Information is stored in a Sqlite database and sql2html.py creates an nice index.html from that database.  
 All checks have debug logging which is stored in the output directory in a per website name, 
@@ -19,7 +21,7 @@ this can be usefull to review the status at a certain point in time.
 ## Requirements
 scirtscan.py assumes you have the following software in your path:
 > https://github.com/santoru/shcheck  
-> https://github.com/ssllabs/ssllabs-scan 
+> ~~https://github.com/ssllabs/ssllabs-scan~~ (is now native through the API)
 
 Also see requirements.txt and as usual perform the following command to satisfy those:
 > pip3 install -r requirements.txt
@@ -56,7 +58,7 @@ for linux use:
 
 If you want to put the files on a webserver, copy the yyyymmdd directory(s) to the webserver root. The file styles.css is used by sql2html.py to generate the index.html, after that it's not used anymore.
 
-The webpage will look something like this:
+The webpage will look something like this (OLD, new screenshot is emminent)
 ![](https://raw.githubusercontent.com/beamzer/ScirtScan/main/scirtscan-table.png)
 
 ## Structure

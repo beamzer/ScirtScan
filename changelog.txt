@@ -1,7 +1,16 @@
 Changelog for ScirtScan
 
-v1.3, upcoming
-	* will add a check to see if the website certificate is valid and if it's going to expire in x days
+v1.3, 20230322
+	* added a check to see if the website certificate is valid and if it's
+	going to expire within 30 days
+	* added a check to validate that HTTP requests get redirected to HTTPS
+	* replaced Qualys ssllabs-scan-v3 with python function that uses the
+	API directly, so thats not a dependency anymore
+	* added a no-cache commandline option to force Qualys to do a new
+	check even if the old check is less than 24 hours old
+	N.B. the SQlite database format has changed because of the new checks,
+	so the new sql2html (v1.3) will give errors on old versions of
+	websites.db
 
 v1.2a, 20230226
 	* scirtscan.py bugfix where shcheck.py would not return json because

@@ -11,48 +11,33 @@ import ssl
 import socket
 from bs4 import BeautifulSoup
 import datetime
-#from datetime import date, datetime, timedelta
-from datetime import date
 import subprocess
 from subprocess import Popen
 import dns.resolver
 
-version = "v1.2a, 20230226"
+version = "v1.3, 20230322"
+
+# It is a good practice to show who is doing the requests (shown at the end of string below)
+# but we keep the normal User-Agent content to avoid clever blocking by WAFs, etc.
+myCERT = 'AmsterdamUMC CERT'
+headers = {
+    'User-Agent': f'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36 ({myCERT})'
+}
+# headers for normal (e.g. API calls) operation
+aheaders = {
+    'User-Agent': f'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36'
+}
 
 current_time = datetime.datetime.now()
-#
-# Format the time as a string
-time_string = current_time.strftime("%Y-%m-%d %H:%M:%S")
+time_string = current_time.strftime("%Y-%m-%d %H:%M:%S")    # Format the time as a string
 
 parser = argparse.ArgumentParser(description='check websites')
-
-parser.add_argument(
-    '-d','--debug',
-    action='store_true',
-    help='print debug messages to stderr'
-)
-
-parser.add_argument(
-    '-v','--version',
-    action='store_true',
-    help='show version info and exit'
-)
-
-parser.add_argument(
-    '-xq','--exclude_qualys',
-    action='store_true',
-    help='exclude qualys ssltest from checks'
-)
-
-parser.add_argument(
-    'filename', 
-    metavar='FILENAME', 
-    type=str,
-    nargs='?', 
-    const=None,
-    help='filename with list of websites'
-)
-
+parser.add_argument('-d','--debug', action='store_true', help='print debug messages to stderr')
+parser.add_argument('-v','--version', action='store_true', help='show version info and exit')
+parser.add_argument('-xq','--exclude_qualys', action='store_true', help='exclude qualys ssltest')
+parser.add_argument('-oq','--only_qualys', action='store_true', help='only do qualys ssltest')
+parser.add_argument('-nc','--no_cache', action='store_true', help='always request fresh tests from qualys')
+parser.add_argument('filename', metavar='FILENAME', type=str, nargs='?', const=None, help='filename with list of websites')
 args = parser.parse_args()
 
 if not args.filename and args.version:
@@ -69,6 +54,14 @@ xqualys = args.exclude_qualys
 if xqualys:
     debug and print("skipping qualys ssltest")
 
+oqualys = args.only_qualys
+if oqualys:
+    debug and print("only doing qualys ssltest")
+
+nocache = args.no_cache
+if nocache:
+    debug and print("not requesting cached results from qualys ssltest")
+
 filename = args.filename
 
 # Check if the file exists
@@ -77,17 +70,15 @@ if not os.path.exists(filename):
 
 debug and print(f"websites will be read from: {filename}")
 
-# Open the file with the websites to check
+# Open the file with the list of websites
 try:
     with open(filename, 'r') as file:
         inlines = file.readlines()
 except IOError as e:
     print(f"Error opening file: {e}")
 
-#debug and print("input file = ", args.input)
-#inlines = args.input.readlines()
 
-today = date.today()
+today = datetime.date.today()
 directory_path = today.strftime("%Y%m%d")
 if not os.path.exists(directory_path):
     try:
@@ -106,32 +97,47 @@ c = conn.cursor()
 
 # Create a table to store the check results, most checks will store a boolean, 1 for OK and 0 for FAIL
 # only grade will contain a letter, because Qualys ssltest uses A-F or T for scores, apended with +'s & -'s
+# robots_check INT,           # only Allow in robots.txt
+# headers_check INT,          # required HTTP security headers present?
+# version_check INT,          # no version information disclosed in HTTP headers
+# error_check INT,            # no version information disclosed in HTTP error page (404)
+# grade TEXT,                 # what is the Qualys SSLtest score (e.g. A+)
+# grade_check INT,            # is Qualys SSLtest score compliant with our requirements (e.g. > A-)
+# check_date TEXT,            # when where the checks performed
+# security_txt INT,           # is .well-known/security.txt present?
+# redirect_check INT,         # are HTTP requests redirected to HTTPS ?
+# cert_validity INT           # how many days before the certificate expires
+
 c.execute('''CREATE TABLE IF NOT EXISTS website_checks
             (websites TEXT PRIMARY KEY, 
-                robots_check INT, 
-                headers_check INT, 
-                version_check INT, 
-                error_check INT, 
-                grade TEXT, 
-                grade_check INT, 
+                robots_check INT,
+                headers_check INT,
+                version_check INT,
+                error_check INT,
+                grade TEXT,
+                grade_check INT,
                 check_date TEXT,
-                security_txt INT
+                security_txt INT,
+                redirect_check INT,
+                cert_validity INT
             )''')
 
 
 ###########################################################################################################
 # if the website name doesn't resolve we can skip the other checks
+# this check is only for logging purposes and is not visible in the dashboard overview
+#
 def check_dns(website):
     debug and print(f"=== check_dns {website}")
     outfile.write("\n===========DNS Check\n")
     try:
-        ipv4_answers = dns.resolver.resolve(website, 'A')
+        ipv4_answers = dns.resolver.resolve(website, 'A')               # check IPv4 addresses
         for answer in ipv4_answers:
             debug and print(answer.address)
             outfile.write(answer.address + "\n")
 
         try:
-            ipv6_answers = dns.resolver.resolve(website, 'AAAA')
+            ipv6_answers = dns.resolver.resolve(website, 'AAAA')        # check IPv6 addresses
             for answer in ipv6_answers:
                 debug and print(answer.address)
                 outfile.write(answer.address + "\n")
@@ -139,13 +145,32 @@ def check_dns(website):
                 debug and print ("no IPv6 addresses")  
 
         try:
-            cname_answers = dns.resolver.resolve(website, 'CNAME')
+            cname_answers = dns.resolver.resolve(website, 'CNAME')      # check cname's (aliases)
             for answer in cname_answers:
                 debug and print(f"cname: {answer.target.to_text()}")
                 outfile.write("cname: " + answer.target.to_text() + "\n")
         except dns.resolver.NoAnswer:
                 debug and print ("no CNAMEs")
                 outfile.write("no CNAMEs")
+
+        try:
+            cname_answers = dns.resolver.resolve(website, 'MX')         # check mx (mail exchange) records
+            for answer in cname_answers:
+                debug and print(f"mx: {answer.exchange.to_text()}")
+                outfile.write("mx: " + answer.exchange.to_text() + "\n")
+        except dns.resolver.NoAnswer:
+            debug and print("no MX records")
+            outfile.write("no MX records")
+
+        try:
+            txt_answers = dns.resolver.resolve(website, 'TXT')          # check for TXT (text) records
+            for answer in txt_answers:
+                for txt_string in answer.strings:
+                    debug and print(f"TXT: {txt_string}")
+                    outfile.write("TXT: " + txt_string.decode('utf-8') + "\n")
+        except dns.resolver.NoAnswer:
+            debug and print("no TXT records")
+            outfile.write("no TXT records")
 
     except dns.resolver.NXDOMAIN:
         debug and print("NXDOMAIN; Website {website} not found")
@@ -154,9 +179,9 @@ def check_dns(website):
     return True
 
 ###########################################################################################################
-# function to check that certain security headers are present in the HTTP header
-# we'll use https://github.com/santoru/shcheck for this, because why reinvent the wheel when there is allready
-# a perfect program for this.
+# Check that certain security headers are present in the HTTP header
+# we'll use https://github.com/santoru/shcheck for this, because why reinvent the wheel
+#
 def header_check(website):
     debug and print(f"=== header_check {website}")
     try:
@@ -215,13 +240,14 @@ def header_check(website):
 ###########################################################################################################
 # this is a very rudimentary check to see if version numbers are present in the HTTP headers
 # at the moment this is purely done by looking for numbers in the HTTP server or x-generator header field
+#
 def check_versioninfo(url):
     debug and print(f"=== check_versioninfo {url}")
     try: 
         result = "OK"       # we'll assume OK unless proven otherwise
         check_version = 1
 
-        r = requests.head(url, allow_redirects=True, timeout=2)
+        r = requests.head(url, headers=headers, allow_redirects=True, timeout=2)
         if 'server' in r.headers:
             if re.match(r".*[0-9].*", r.headers['server']):
                 result = "NOK"
@@ -253,8 +279,9 @@ def check_versioninfo(url):
         print(error)
 
 ###########################################################################################################
-# this check will verify that robots.txt only contains allow statements, since disallow statements give away 
-# interesting information to hackers
+# this check will verify that robots.txt only contains Allow statements, since Disallow statements give away 
+# interesting information to hackers (often first place to look in reconnaissance)
+#
 def robots_check(url):
     debug and print(f"=== robots_check {url}")
     try:
@@ -262,7 +289,7 @@ def robots_check(url):
 
         myurl = url + "/robots.txt"
 
-        resp = requests.get(myurl)
+        resp = requests.get(myurl, headers=headers)
         disallow_regex = re.compile('^Disallow:',re.I)     # re.I = case insensitive
         allow_regex = re.compile('^Allow:',re.I)
         disallow_all_regex = re.compile('^Disallow: \/$',re.I)
@@ -316,13 +343,14 @@ def robots_check(url):
 ###########################################################################################################
 # the error check tries to verify that there is no product information or version numbers in the HTTP error page
 # production websites should serve a clean error page and test websites should nog be open from the Internet
+#
 def error_check(url):
     debug and print(f"=== error_check {url}")
     try:
 
         my_url = url + "/sdfsffe978hjcf65"  # random url which will generate a 404 on the webserver
 
-        resp = requests.get(my_url, timeout=3)
+        resp = requests.get(my_url, headers=headers, timeout=3)
         html = resp.text
         soup = BeautifulSoup(html, "html.parser")
 
@@ -359,59 +387,82 @@ def error_check(url):
         print(error)
 
 ###########################################################################################################
-# This checks that the website has an A+ grade on the Qualys SSLtest
-# by requiring an A+ score out security policy is future proof, since Qualys will modify the grading scores when certain
-# algorithms are not safe to use anymore.
+# This checks that the website has an A+ grade on the Qualys SSLtest ( https://www.ssllabs.com/ssltest/ )
+# by requiring an A+ score our security policy is future proof, since Qualys will modify the grading scores when certain
+# algorithms become unsafe to use.
 # Maybe your policy requires an other SSL/TLS check, you can easily cater for that by defining and using your own check function
-def check_ssl(url):
-    debug and print(f"=== check_ssl {url}")
+#
+def get_ssl_labs_grade(website: str, use_cache=True) -> str:
+    debug and print(f"=== get_ssl_labs_grade {website}")
+    outfile.write("\n===========SSL/TLS Configuration CHECK\n")
+
+    base_url = "https://api.ssllabs.com/api/v3"
+    cache_param = 'on' if use_cache else 'off'
+    analyze_url = f"{base_url}/analyze?host={website}&publish=off&all=done&fromCache={cache_param}"
+    
+    # Start the analysis
+    response = requests.get(analyze_url, headers=aheaders)        # this is a normal API call, so we use our normal headers here
+    result = response.json()
+
+# wait times are per Qualys API v3 documentation, see:
+# https://github.com/ssllabs/ssllabs-scan/blob/master/ssllabs-api-docs-v3.md#%20access-rate-and-rate-limiting
+    while result.get('status', None) not in ('IN_PROGRESS','READY', 'ERROR'):
+        time.sleep(5)  # Wait for 5 seconds before polling the API again
+        response = requests.get(analyze_url, headers=aheaders)
+        result = response.json()
+        debug and print(",", end="", flush=True)     # print a , every 5s to show we're waiting for Qualys
+
+    while result.get('status', None) not in ('READY', 'ERROR'):
+        time.sleep(10)  # Wait for 10 seconds before polling the API again
+        response = requests.get(analyze_url, headers=aheaders)
+        result = response.json()
+        debug and print(".", end="", flush=True)     # print a . every 10s to show we're waiting for the result
+    debug and print("")
+
+    if result.get('status') == 'READY':
+        grade = result['endpoints'][0]['grade']
+        host = result['host']
+        ipAddress = result['endpoints'][0]['ipAddress']
+        debug and print(f"grade = {grade}, host = {host}, IP-Address = {ipAddress}")
+        # return grade
+    else:
+        print(f"Error: SSL Labs scan could not be completed for {website}")
+        return None
+
+    # Parse JSON data and write to logfile
+    json_formatted_str = json.dumps(result, indent=2)
+    outfile.write(json_formatted_str)
+
+    #regexp = re.compile(r'A\+')      # change A+ to something else if your policy requires differently
+    regexp = re.compile(r'A')         # anything from an A- and better is good for us
+    if regexp.search(grade):
+        check_score = 1
+    else:
+        check_score = 0
+
     try:
-        response = subprocess.run(['ssllabs-scan-v3','-quiet','-usecache',url], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        check_result = response.stdout.decode()
-        outfile.write("\n===========SSL/TLS Configuration CHECK\n")
-        # outfile.write(check_result)
+        c.execute("UPDATE website_checks SET grade = ?, grade_check = ? WHERE websites = ?", (grade,check_score, website))
+        conn.commit()
+        debug and print(f"SSLtest record inserted into website_checks {check_score}")
+    except sqlite3.Error as error:
+        print("Failed to insert data into table", error)
 
-        # Parse JSON data
-        data = json.loads(check_result)
-
-        host = data[0]['host']
-        ipAddress = data[0]['endpoints'][0]['ipAddress']
-        grade = data[0]['endpoints'][0]['grade']
-
-        json_formatted_str = json.dumps(data, indent=2)
-        outfile.write(json_formatted_str)
-
-        regexp = re.compile(r'A+')
-        if regexp.search(grade):
-            check_score = 1
-        else:
-            check_score = 0
-
-        try:
-            c.execute("UPDATE website_checks SET grade = ?, grade_check = ? WHERE websites = ?", (grade,check_score, website))
-            conn.commit()
-            debug and print("record inserted into website_checks ", grade, check_score)
-        except sqlite3.Error as error:
-            print("Failed to insert data into table", error)
-    except KeyboardInterrupt:
-        sys.exit()
-    except OSError as error:
-        print(error)
 
 ###########################################################################################################
 # CVD (Coordinated Vulnerability Disclosure) requires security contact information to be present on this URL
+#
 def check_security_file(website):
     debug and print(f"=== check_security_file {website}")
+    outfile.write("\n===========Security.txt Check\n")
+
     check_security_file = 0
     try:
-        response = requests.get(f"https://{website}/.well-known/security.txt")
+        response = requests.get(f"https://{website}/.well-known/security.txt", headers=headers)
         if response.status_code >= 200 and response.status_code < 300:
             check_security_file = 1
-            outfile.write("\n===========Security.txt Check\n")
             outfile.write("OK\n")
             outfile.write(response.text)
         else:
-            outfile.write("\n===========Security.txt Check\n")
             outfile.write("NOK\n")
             
     except requests.exceptions.RequestException as e:
@@ -426,16 +477,15 @@ def check_security_file(website):
 
 
 ###########################################################################################################
-# SSL/TLS Certificate Check by ChatGPT: https://sharegpt.com/c/xHQQv9k
+# SSL/TLS Certificate Check with help from ChatGPT: https://sharegpt.com/c/xHQQv9k
 #
 def check_ssl_certificate_validity(website):
     debug and print(f"=== check_ssl_certificate_validity {website}")
-    # Add the https protocol to the website name
-    website_url = "https://" + website
+    outfile.write("\n===========Certificate validity Check\n")
 
     try:
         # Establish a secure connection to the website and retrieve its SSL certificate information
-        cert = ssl.get_server_certificate((website_name, 443))
+        cert = ssl.get_server_certificate((website, 443))
 
         # Verify the certificate
         context = ssl.create_default_context()
@@ -443,19 +493,29 @@ def check_ssl_certificate_validity(website):
         context.verify_mode = ssl.CERT_REQUIRED
 
         # Create a socket and wrap it with an SSL context
-        with socket.create_connection((website_name, 443)) as sock:
+        with socket.create_connection((website, 443)) as sock:
             with context.wrap_socket(sock, server_hostname=website) as ssock:
                 # Get the certificate information
                 cert_info = ssock.getpeercert()
 
         # Get the expiration date of the certificate
-        cert_expiration = datetime.strptime(cert_info['notAfter'], '%b %d %H:%M:%S %Y %Z')
+        cert_expiration = datetime.datetime.strptime(cert_info['notAfter'], '%b %d %H:%M:%S %Y %Z')
+        current_time = datetime.datetime.utcnow()
+        days_left = (cert_expiration - current_time).days
+        outfile.write(f"certificate expiration: {cert_expiration}")
+        outfile.write(f"time of check (utc)   : {current_time}")
+        outfile.write(f"certificate days left : {days_left}")
+        debug and print(f"certificate expiration: {cert_expiration}")
+        debug and print(f"time of check (utc)   : {current_time}")
+        debug and print(f"certificate  days left: {days_left}")
 
-        # Check if the certificate is going to expire within the next 30 days
-        if cert_expiration - datetime.now() < timedelta(days=30):
-            return False
+        try:
+            c.execute("UPDATE website_checks SET cert_validity = ? WHERE websites = ?", (days_left, website))
+            conn.commit()
+            debug and print("record inserted into website_checks ", days_left)
+        except sqlite3.Error as error:
+            print("Failed to insert data into table", error)
 
-        # If the certificate is valid, return True
         return True
 
     except ssl.SSLError:
@@ -463,10 +523,47 @@ def check_ssl_certificate_validity(website):
         return False
 
 
+def check_http_redirected_to_https(website: str) -> bool:
+    debug and print(f"=== check_http_redirected_to_https {website}")
+    outfile.write("\n===========Check HTTP redirect to HTTPS\n")
 
+    try:
+        http_url = f'http://{website}'
+        response = requests.get(http_url, allow_redirects=True, timeout=10, headers=headers)
+
+        if response.history:
+            final_url = response.url
+            if final_url.startswith('https://'):
+                check_redirect = 1
+                debug and print(f"{website} redirects HTTP to HTTPS")
+                outfile.write(f"{website} redirects HTTP to HTTPS")
+            else:
+                redirect_check = 0
+                debug and print(f"ERROR {website} does not redirect HTTP to HTTPS")
+                outfile.write(f"ERROR {website} does not redirect HTTP to HTTPS")
+
+            try:
+                c.execute("UPDATE website_checks SET redirect_check = ? WHERE websites = ?", (check_redirect, website))
+                conn.commit()
+                debug and print("record inserted into redirect_checks ", check_redirect)
+            except sqlite3.Error as error:
+                print("Failed to insert data into table", error)
+                return False
+
+    except requests.exceptions.RequestException as e:
+        print(f"Error: {e}")
+        outfile.write(f"Error: {e}")
+        return False
+
+    return True
+    
 
 ############################################# Main code block #############################################
+#
 for website in inlines:
+    if website.startswith("#"):
+        continue                        # allow for comments in website list
+
     website = website.strip()
     myfile = directory_path + "/" + website + ".txt"
     url = 'https://' + website.strip()
@@ -485,19 +582,29 @@ for website in inlines:
     c.execute("UPDATE website_checks SET check_date = ? WHERE websites = ?", (check_date, website))
     conn.commit()
 
-# Pro tip:
-# when you are modifying a function or adding another one, it's best to comment out all other functions 
-# untill it works the way you want. Or we can add other commandline arguments to you can specify it at runtime
+# when you are modifying a function or adding another one, comment out all other functions 
+# untill it works the way you want. Or add other commandline arguments to you can specify it at runtime
 
     if check_dns(website):
         try:
+            if oqualys:
+                if nocache:
+                    get_ssl_labs_grade(website, use_cache=False)
+                else:
+                    get_ssl_labs_grade(website)
+                continue
             header_check(website)
             check_versioninfo(url)
             error_check(url)
             robots_check(url)
             check_security_file(website)
+            check_ssl_certificate_validity(website)
+            check_http_redirected_to_https(website)
             if not xqualys:
-                check_ssl(url)
+                if nocache:
+                    get_ssl_labs_grade(website, use_cache=False)
+                else:
+                    get_ssl_labs_grade(website)
         except KeyboardInterrupt:
             sys.exit("as you wish, aborting...")
         except OSError as e:

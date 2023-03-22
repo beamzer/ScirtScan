@@ -2,9 +2,11 @@
 import sqlite3
 import argparse
 import os
+import sys
 import datetime
 from datetime import date
 
+version = "v1.3, 20230322"
 
 html_table = ""
 
@@ -12,21 +14,15 @@ today = date.today()
 dir = today.strftime("%Y%m%d")
 
 parser = argparse.ArgumentParser(description='creates an index.html page from the sqlite database websites.db')
-
-parser.add_argument(
-    '-d','--debug',
-    action='store_true',
-    help='print debug messages to stderr'
-    )
-
-parser.add_argument(
-    '-p', '--path', 
-    type=str, 
-    help=f'The directory path, if not given will assume the directory with todays date: {dir}'
-    )
+parser.add_argument('-d','--debug', action='store_true', help='print debug messages to stderr')
+parser.add_argument('-p', '--path', type=str, help=f'The directory path, if not given will assume the directory with todays date: {dir}')
+parser.add_argument('-v','--version', action='store_true', help='show version info and exit')
 
 args = parser.parse_args()
 debug = args.debug
+
+if args.version:
+    sys.exit(f"version: {version}")
 
 # If the path argument is provided, use it as the directory path
 if args.path:
@@ -53,7 +49,9 @@ except sqlite3.Error as e:
 # Define the HTML table headers as a list, in the order they should appear on the webpage
 table_headers = ['website', 
                  'grade', 
-                 'grade_check', 
+                 'grade<br>check',
+                 'HTTPS<br>redirect',
+                 'certificate<br>validity',
                  'headers', 
                  'security.txt', 
                  'robots.txt', 
@@ -76,7 +74,9 @@ sql_query = ("SELECT websites, "
              "grade, "
              "grade_check, "
              "check_date, "
-             "security_txt "
+             "security_txt, "
+             "cert_validity, "
+             "redirect_check "
              "FROM website_checks")
 
 cs = conn.cursor()
@@ -97,7 +97,9 @@ for row in result:
     grad_check = row[6]
     date_check = row[7]
     security_txt = row[8]
-    debug and print(date_check, website, robo_check, head_check, vers_check, err_check, grad_check, grade, security_txt)
+    cert_valid = row[9]
+    redirect_check = row[10]
+    debug and print(date_check, website, robo_check, head_check, vers_check, err_check, grad_check, grade, security_txt, cert_valid, redirect_check)
  
     # debugfile = dir + "/" + website + ".txt"
     debugfile = website + ".txt"
@@ -121,6 +123,22 @@ for row in result:
         html_table = html_table + "<td class=\"green\">" + "&#x2705;" + "</td>"
     elif grad_check == 0:
         html_table = html_table + "<td class=\"red\">" + "&#10006;" + "</td>"
+    else:
+        html_table = html_table + "<td class=\"orange\">" + "<b>&quest;</b>" + "</td>"
+
+    if redirect_check == 1:
+        html_table = html_table + "<td class=\"green\">" + "&#x2705;" + "</td>"
+    elif redirect_check == 0:
+        html_table = html_table + "<td class=\"red\">" + "&#10006;" + "</td>"
+    else:
+        html_table = html_table + "<td class=\"orange\">" + "<b>&quest;</b>" + "</td>"
+
+    if cert_valid is None:
+        html_table = html_table + "<td class=\"orange\">" + "<b>&quest;</b>" + "</td>"
+    elif cert_valid > 29:
+        html_table = html_table + f"<td class=\"green\">{cert_valid}</td>"
+    elif cert_valid < 30:
+        html_table = html_table + f"<td class=\"red\">{cert_valid}</td>"
     else:
         html_table = html_table + "<td class=\"orange\">" + "<b>&quest;</b>" + "</td>"
 
@@ -193,7 +211,8 @@ html_page = """
   <br />
   if the security.txt entry has a green checkbox, then it's a link you can click <br />
   this table is generated with:<br />
-  <a class="white" href="https://github.com/beamzer/ScirtScan">https://github.com/beamzer/ScirtScan</a>
+  <a class="white" href="https://github.com/beamzer/ScirtScan">https://github.com/beamzer/ScirtScan</a><br />
+  Click here for a: <a class="white" href="website_checks.xlsx">Excel file with this table</a><br />
 </body>
 </html>
 """.format(css_styles, header_row, html_table)

@@ -1,5 +1,9 @@
 Changelog for ScirtScan
 
+v1.4, upcoming
+	* removing the dependency of shcheck.py and doing these checks from
+	within the function
+
 v1.3, 20230322
 	* added a check to see if the website certificate is valid and if it's
 	going to expire within 30 days

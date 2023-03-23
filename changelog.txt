@@ -1,8 +1,27 @@
 Changelog for ScirtScan
 
+v2.0, upcoming
+	* config file to read specific values (e.g. CERT name in UserAgent)
+	and specify which checks should be done and which shouldn't
+	* database format stored in sqlite database itself, so sql2html 
+	and sql2excel will allways work regardless of what's in the database.
+	* maybe facilitate the upload of a new list op websites to scan
+	through the HTML page, so this can be used without shell access?
+	* will look into more output tools, e.g. a pie-chart to show how your
+	compliance is on a certain topic (e.g. SSLtest scores) and possibly a
+	graph over time to show improvement or getting worse
+	* will look into options for e-mail alerting if compliance on a certain topic
+	has failed for a website between consecutive checks
+
 v1.4, upcoming
 	* removing the dependency of shcheck.py and doing these checks from
-	within the function
+	within the function & writing all raw headers to the per website logfile.
+	* having a fixed header on the HTML page, while the table below can
+	scroll
+	* adding an option to sort the table on certificate age and SSLtest
+	score, so you can easily see whats urgent
+	* add an option to write debug log to a file in the YYYYMMDD
+	directory, so it's allways available for review
 
 v1.3, 20230322
 	* added a check to see if the website certificate is valid and if it's
@@ -12,9 +31,12 @@ v1.3, 20230322
 	API directly, so thats not a dependency anymore
 	* added a no-cache commandline option to force Qualys to do a new
 	check even if the old check is less than 24 hours old
-	N.B. the SQlite database format has changed because of the new checks,
-	so the new sql2html (v1.3) will give errors on old versions of
-	websites.db
+	* added a defined user-agent string which is used with the HTTPS requests, 
+	so it shows which entity is doeing the checks (best practice).
+	** N.B. the SQlite database format has changed because of the new checks,
+	so the new sql2html (v1.3) may give errors on old versions of
+	websites.db (but only fields are added, so probably you're fine)
+	** TBD. sql2excel needs to be adapted to the extra fields in the database
 
 v1.2a, 20230226
 	* scirtscan.py bugfix where shcheck.py would not return json because

@@ -88,6 +88,8 @@ probably, in fact almost certainly, please let me know
 * ~~A check for the presence of `.well-known/security.txt `~~
 * A check for the precense of open directories
 * more output options (excel, pie-charts, ... ?)
+* see https://github.com/beamzer/ScirtScan/blob/main/changelog.txt
+ 
 
 ## License and Disclaimer
 This software is licensed under GPL v3.0 as stated in [LICENSE](https://github.com/beamzer/ScirtScan/blob/main/LICENSE)

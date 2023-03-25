@@ -6,7 +6,6 @@ body {
   padding:0;
 }
 
-
 table.mystyle th {
   text-align: center;
   padding: 8px;
@@ -26,7 +25,20 @@ table.mystyle td {
 .red {   background: red; }
 .green {   background: green; }
 .orange {   background: orange; }
+.white {   background: white; }
+.black { background: black; }
 .url { color: black ; background-color: white }
+
+a:link {
+    color: magenta;
+}
+a:visited {
+    color: yellow;
+}
+a.check:link,
+a.check:visited {
+    color: inherit;
+}
 
 table.mystyle td:first-child {
     text-align: left;

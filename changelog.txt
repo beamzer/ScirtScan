@@ -12,16 +12,23 @@ v2.0, upcoming
 	graph over time to show improvement or getting worse
 	* will look into options for e-mail alerting if compliance on a certain topic
 	has failed for a website between consecutive checks
+	* will look into an option to specify primary websites (e.g.  www.company.tld ) 
+	and have those shown first in the webpage
 
-v1.4, upcoming
+v1.4, 20230325
 	* removing the dependency of shcheck.py and doing these checks from
 	within the function & writing all raw headers to the per website logfile.
-	* having a fixed header on the HTML page, while the table below can
 	scroll
-	* adding an option to sort the table on certificate age and SSLtest
-	score, so you can easily see whats urgent
-	* add an option to write debug log to a file in the YYYYMMDD
+	* adding an option to sort the table on website name, certificate age, SSLtest
+	score, and even the rest, so you can easily see whats most urgent
+	* changed the  option for debug.log to -ndf (no debug log), so now
+	debug.log is always written, except if you explicitly tell it not to 
+
+v1.3a, 20230323
+	* added an option (-df) to write debug.log to a file in the YYYYMMDD
 	directory, so it's allways available for review
+	* added a user-agent that shows who is doing the scanning, and a -a
+	option to use a user-agent without telling that
 
 v1.3, 20230322
 	* added a check to see if the website certificate is valid and if it's

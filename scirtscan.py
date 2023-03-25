@@ -15,28 +15,30 @@ import subprocess
 from subprocess import Popen
 import dns.resolver
 
-version = "v1.3, 20230322"
+version = "v1.4, 20230325"
 
-# It is a good practice to show who is doing the requests (shown at the end of string below)
-# but we keep the normal User-Agent content to avoid clever blocking by WAFs, etc.
-myCERT = 'AmsterdamUMC CERT'
-headers = {
-    'User-Agent': f'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36 ({myCERT})'
-}
-# headers for normal (e.g. API calls) operation
-aheaders = {
-    'User-Agent': f'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36'
-}
 
 current_time = datetime.datetime.now()
 time_string = current_time.strftime("%Y-%m-%d %H:%M:%S")    # Format the time as a string
 
+# create the output directory (if it doesn't exist)
+today = datetime.date.today()
+directory_path = today.strftime("%Y%m%d")
+if not os.path.exists(directory_path):
+    try:
+        os.makedirs(directory_path)
+    except OSError as error:
+        sys.exit(f"Error trying create {directory_path}: {error}")
+
+
 parser = argparse.ArgumentParser(description='check websites')
 parser.add_argument('-d','--debug', action='store_true', help='print debug messages to stderr')
+parser.add_argument('-a','--anon', action='store_true', help='don\'t modify user-agent to show who is scanning')
 parser.add_argument('-v','--version', action='store_true', help='show version info and exit')
-parser.add_argument('-xq','--exclude_qualys', action='store_true', help='exclude qualys ssltest')
-parser.add_argument('-oq','--only_qualys', action='store_true', help='only do qualys ssltest')
+parser.add_argument('-nq','--no_qualys', action='store_true', help='exclude qualys ssltest')
+parser.add_argument('-oq','--only_qualys', action='store_true', help='only do qualys ssltest (skip other tests)')
 parser.add_argument('-nc','--no_cache', action='store_true', help='always request fresh tests from qualys')
+parser.add_argument('-ndf', '--no_debugfile', action='store_true', help='Don\'t save debug output to debug.log in the YYYYMMDD directory')
 parser.add_argument('filename', metavar='FILENAME', type=str, nargs='?', const=None, help='filename with list of websites')
 args = parser.parse_args()
 
@@ -48,19 +50,45 @@ if args.filename is None:
     sys.exit("ERROR: missing FILENAME")
 
 debug = args.debug
-debug and print("debug output activated")
+skip_debug_file = args.no_debugfile
 
-xqualys = args.exclude_qualys
+anon = args.anon
+
+# print debug messages to screen on -d
+debug_file_path = os.path.join(directory_path, "debug.log")
+
+def debug_print(msg):
+    if not skip_debug_file:      
+        with open(debug_file_path, 'a') as f:
+            try:
+                f.write(msg + '\n')
+            except OSError as error:
+                print(f"failed to write to debug.log: {error}")
+    if debug:
+        print(msg)
+
+# comment this out if you want debug output of more runs on the same day added to one big file
+if not skip_debug_file:
+    print(f"debug.log output written to {debug_file_path}")
+    if os.path.exists(debug_file_path):
+        try:
+            os.remove(debug_file_path)
+        except OSError as error:
+            print(f"found existing debug.log but failed to remove it: {error}")
+
+debug_print(f"ScirtScan version: {version}, check started on: {time_string}")
+
+xqualys = args.no_qualys
 if xqualys:
-    debug and print("skipping qualys ssltest")
+    debug_print("skipping qualys ssltest")
 
 oqualys = args.only_qualys
 if oqualys:
-    debug and print("only doing qualys ssltest")
+    debug_print("only doing qualys ssltest")
 
 nocache = args.no_cache
 if nocache:
-    debug and print("not requesting cached results from qualys ssltest")
+    debug_print("not requesting cached results from qualys ssltest")
 
 filename = args.filename
 
@@ -68,28 +96,33 @@ filename = args.filename
 if not os.path.exists(filename):
     sys.exit(f"The file {filename} does not exist.")
 
-debug and print(f"websites will be read from: {filename}")
+debug_print(f"websites will be read from: {filename}")
 
 # Open the file with the list of websites
 try:
     with open(filename, 'r') as file:
         inlines = file.readlines()
-except IOError as e:
-    print(f"Error opening file: {e}")
+except IOError as error:
+    sys.exit(f"Error opening file {filename}: {error}")
 
-
-today = datetime.date.today()
-directory_path = today.strftime("%Y%m%d")
-if not os.path.exists(directory_path):
-    try:
-        os.makedirs(directory_path)
-    except OSError as error:
-        print(error)
+# headers for normal (e.g. API calls) operation
+aheaders = {
+    'User-Agent': f'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36'
+}
+# It is a good practice to show who is doing the requests
+# but we keep the normal User-Agent content to avoid clever blocking by WAFs, etc.
+if not anon:
+    myCERT = 'AmsterdamUMC CERT'
+    headers = {
+        'User-Agent': f'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36 ({myCERT})'
+    }
+else:
+    headers = aheaders
 
 # Connect to the SQLite database in the directory
 try:
     conn = sqlite3.connect(os.path.join(directory_path, 'websites.db'))
-    debug and print(f"Connected to database {os.path.join(directory_path, 'websites.db')}.")
+    debug_print(f"Connected to database {os.path.join(directory_path, 'websites.db')}.")
 except sqlite3.Error as e:
     print(f"Error connecting to database: {e}")
 
@@ -128,62 +161,131 @@ c.execute('''CREATE TABLE IF NOT EXISTS website_checks
 # this check is only for logging purposes and is not visible in the dashboard overview
 #
 def check_dns(website):
-    debug and print(f"=== check_dns {website}")
+    debug_print(f"=== check_dns {website}")
     outfile.write("\n===========DNS Check\n")
+
     try:
         ipv4_answers = dns.resolver.resolve(website, 'A')               # check IPv4 addresses
         for answer in ipv4_answers:
-            debug and print(answer.address)
+            debug_print(answer.address)
             outfile.write(answer.address + "\n")
 
         try:
             ipv6_answers = dns.resolver.resolve(website, 'AAAA')        # check IPv6 addresses
             for answer in ipv6_answers:
-                debug and print(answer.address)
+                debug_print(answer.address)
                 outfile.write(answer.address + "\n")
         except dns.resolver.NoAnswer:
-                debug and print ("no IPv6 addresses")  
+                debug_print ("no IPv6 addresses")  
 
         try:
             cname_answers = dns.resolver.resolve(website, 'CNAME')      # check cname's (aliases)
             for answer in cname_answers:
-                debug and print(f"cname: {answer.target.to_text()}")
+                debug_print(f"cname: {answer.target.to_text()}")
                 outfile.write("cname: " + answer.target.to_text() + "\n")
         except dns.resolver.NoAnswer:
-                debug and print ("no CNAMEs")
+                debug_print ("no CNAMEs")
                 outfile.write("no CNAMEs")
 
         try:
             cname_answers = dns.resolver.resolve(website, 'MX')         # check mx (mail exchange) records
             for answer in cname_answers:
-                debug and print(f"mx: {answer.exchange.to_text()}")
+                debug_print(f"mx: {answer.exchange.to_text()}")
                 outfile.write("mx: " + answer.exchange.to_text() + "\n")
         except dns.resolver.NoAnswer:
-            debug and print("no MX records")
+            debug_print("no MX records")
             outfile.write("no MX records")
 
         try:
             txt_answers = dns.resolver.resolve(website, 'TXT')          # check for TXT (text) records
             for answer in txt_answers:
                 for txt_string in answer.strings:
-                    debug and print(f"TXT: {txt_string}")
+                    debug_print(f"TXT: {txt_string}")
                     outfile.write("TXT: " + txt_string.decode('utf-8') + "\n")
         except dns.resolver.NoAnswer:
-            debug and print("no TXT records")
+            debug_print("no TXT records")
             outfile.write("no TXT records")
 
     except dns.resolver.NXDOMAIN:
-        debug and print("NXDOMAIN; Website {website} not found")
+        debug_print("NXDOMAIN; Website {website} not found")
         outfile.write("NXDOMAIN; Website {website} not found")
         return False
+    except dns.resolver.LifetimeTimeout as e:
+        print("DNS resolution failed due to lifetime timeout.")
+        print(f"Error details: {e}")
+        return False
+
     return True
+
+
+import requests
+
+###########################################################################################################
+# Check that certain security headers are present in the HTTP header
+def check_http_headers(website):
+    debug_print(f"=== check_http_headers {website}")
+    url = f'https://{website}'
+
+    headers_to_check = {
+        "X-XSS-Protection",
+        "X-Frame-Options",
+        "X-Content-Type-Options",
+        "Strict-Transport-Security",
+        "Referrer-Policy"
+    }
+
+    try:
+        response = requests.get(url)
+    except requests.exceptions.RequestException as e:
+        print(f"Error connecting to {website}: {e}")
+        return
+
+    missing_headers = []
+    hsts_duration = None
+    check_header = 1 
+
+    debug_print(f'{response.headers}')
+
+    for header in headers_to_check:
+        if header in response.headers:
+            if header == "Strict-Transport-Security":
+                hsts_value = response.headers[header]
+                hsts_parts = hsts_value.split(";")
+                max_age = next((part for part in hsts_parts if "max-age" in part), None)
+                if max_age:
+                    hsts_duration = int(max_age.split("=")[1].strip())
+        else:
+            missing_headers.append(header)
+
+    if missing_headers:
+        debug_print(f"Missing headers for {website}: {', '.join(missing_headers)}")
+        check_header = 0
+
+    if hsts_duration is not None:
+        if hsts_duration >= 31536000:
+            debug_print(f"OK, {website} has HSTS value of at least one year: {hsts_duration} seconds")
+        else:
+            debug_print(f"ERR, {website} HSTS value is LESS than one year: {hsts_duration} seconds")
+            check_header = 0
+    else:
+        debug_print(f"{website} is missing Strict-Transport-Security header")
+        check_header = 0
+
+    try:
+        c.execute("UPDATE website_checks SET headers_check = ? WHERE websites = ?", (check_header, website))
+        conn.commit()
+        debug_print(f"record inserted into website_checks {check_header}")
+    except sqlite3.Error as error:
+        print("Failed to insert data into table", error)
+
+
 
 ###########################################################################################################
 # Check that certain security headers are present in the HTTP header
 # we'll use https://github.com/santoru/shcheck for this, because why reinvent the wheel
 #
 def header_check(website):
-    debug and print(f"=== header_check {website}")
+    debug_print(f"=== header_check {website}")
     try:
         url = 'https://' + website
         try:
@@ -192,9 +294,9 @@ def header_check(website):
             print(f"shcheck didn't like that: {e}")
 
         output = process.stdout.decode()
-        # debug and print(f"shcheck stdout: {output}")
+        # debug_print(f"shcheck stdout: {output}")
         # err = process.stderr.decode()
-        # debug and print(f"shcheck stderr: {err}")
+        # debug_print(f"shcheck stderr: {err}")
 
         if "URL Returned an HTTP error:" in output:
             print("ERR: looks like this is a dead-end street, bailing out of header_check")
@@ -227,7 +329,7 @@ def header_check(website):
         try:
             c.execute("UPDATE website_checks SET headers_check = ? WHERE websites = ?", (check_header, website))
             conn.commit()
-            debug and print("record inserted into website_checks ", check_header)
+            debug_print(f"record inserted into website_checks {check_header}")
         except sqlite3.Error as error:
             print("Failed to insert data into table", error)
 
@@ -242,7 +344,7 @@ def header_check(website):
 # at the moment this is purely done by looking for numbers in the HTTP server or x-generator header field
 #
 def check_versioninfo(url):
-    debug and print(f"=== check_versioninfo {url}")
+    debug_print(f"=== check_versioninfo {url}")
     try: 
         result = "OK"       # we'll assume OK unless proven otherwise
         check_version = 1
@@ -268,7 +370,7 @@ def check_versioninfo(url):
         try:
             c.execute("UPDATE website_checks SET version_check = ? WHERE websites = ?", (check_version, website))
             conn.commit()
-            debug and print("record inserted into website_checks ", check_version)
+            debug_print(f"record inserted into website_checks {check_version}")
         except sqlite3.Error as error:
             print("Failed to insert data into table", error)
 
@@ -283,7 +385,7 @@ def check_versioninfo(url):
 # interesting information to hackers (often first place to look in reconnaissance)
 #
 def robots_check(url):
-    debug and print(f"=== robots_check {url}")
+    debug_print(f"=== robots_check {url}")
     try:
         check = "NOK"
 
@@ -329,7 +431,7 @@ def robots_check(url):
         try:
             c.execute("UPDATE website_checks SET robots_check = ? WHERE websites = ?", (check_robots, website))
             conn.commit()
-            debug and print("record inserted into website_checks ", check_robots)
+            debug_print(f"record inserted into website_checks {check_robots}")
         except sqlite3.Error as error:
             print("Failed to insert data into table", error)
 
@@ -345,7 +447,7 @@ def robots_check(url):
 # production websites should serve a clean error page and test websites should nog be open from the Internet
 #
 def error_check(url):
-    debug and print(f"=== error_check {url}")
+    debug_print(f"=== error_check {url}")
     try:
 
         my_url = url + "/sdfsffe978hjcf65"  # random url which will generate a 404 on the webserver
@@ -378,7 +480,7 @@ def error_check(url):
         try:
             c.execute("UPDATE website_checks SET error_check = ? WHERE websites = ?", (check_error, website))
             conn.commit()
-            debug and print("record inserted into website_checks ", check_error)
+            debug_print(f"record inserted into website_checks {check_error}")
         except sqlite3.Error as error:
             print("Failed to insert data into table", error)
     except KeyboardInterrupt:
@@ -393,7 +495,7 @@ def error_check(url):
 # Maybe your policy requires an other SSL/TLS check, you can easily cater for that by defining and using your own check function
 #
 def get_ssl_labs_grade(website: str, use_cache=True) -> str:
-    debug and print(f"=== get_ssl_labs_grade {website}")
+    debug_print(f"=== get_ssllabs_grade {website}")
     outfile.write("\n===========SSL/TLS Configuration CHECK\n")
 
     base_url = "https://api.ssllabs.com/api/v3"
@@ -423,10 +525,10 @@ def get_ssl_labs_grade(website: str, use_cache=True) -> str:
         grade = result['endpoints'][0]['grade']
         host = result['host']
         ipAddress = result['endpoints'][0]['ipAddress']
-        debug and print(f"grade = {grade}, host = {host}, IP-Address = {ipAddress}")
+        debug_print(f"grade = {grade}, host = {host}, IP-Address = {ipAddress}")
         # return grade
     else:
-        print(f"Error: SSL Labs scan could not be completed for {website}")
+        print(f"Error: ssllabs check could not be completed for {website}")
         return None
 
     # Parse JSON data and write to logfile
@@ -443,7 +545,7 @@ def get_ssl_labs_grade(website: str, use_cache=True) -> str:
     try:
         c.execute("UPDATE website_checks SET grade = ?, grade_check = ? WHERE websites = ?", (grade,check_score, website))
         conn.commit()
-        debug and print(f"SSLtest record inserted into website_checks {check_score}")
+        debug_print(f"ssllabs record inserted into website_checks {check_score}")
     except sqlite3.Error as error:
         print("Failed to insert data into table", error)
 
@@ -452,7 +554,7 @@ def get_ssl_labs_grade(website: str, use_cache=True) -> str:
 # CVD (Coordinated Vulnerability Disclosure) requires security contact information to be present on this URL
 #
 def check_security_file(website):
-    debug and print(f"=== check_security_file {website}")
+    debug_print(f"=== check_security_file {website}")
     outfile.write("\n===========Security.txt Check\n")
 
     check_security_file = 0
@@ -471,7 +573,7 @@ def check_security_file(website):
     try:
         c.execute("UPDATE website_checks SET security_txt = ? WHERE websites = ?", (check_security_file, website))
         conn.commit()
-        debug and print("record inserted into website_checks ", check_security_file)
+        debug_print(f"record inserted into website_checks {check_security_file}")
     except sqlite3.Error as error:
         print("Failed to insert data into table", error)
 
@@ -480,7 +582,7 @@ def check_security_file(website):
 # SSL/TLS Certificate Check with help from ChatGPT: https://sharegpt.com/c/xHQQv9k
 #
 def check_ssl_certificate_validity(website):
-    debug and print(f"=== check_ssl_certificate_validity {website}")
+    debug_print(f"=== check_ssl_certificate_validity {website}")
     outfile.write("\n===========Certificate validity Check\n")
 
     try:
@@ -505,14 +607,14 @@ def check_ssl_certificate_validity(website):
         outfile.write(f"certificate expiration: {cert_expiration}")
         outfile.write(f"time of check (utc)   : {current_time}")
         outfile.write(f"certificate days left : {days_left}")
-        debug and print(f"certificate expiration: {cert_expiration}")
-        debug and print(f"time of check (utc)   : {current_time}")
-        debug and print(f"certificate  days left: {days_left}")
+        debug_print(f"certificate expiration: {cert_expiration}")
+        debug_print(f"time of check (utc)   : {current_time}")
+        debug_print(f"certificate  days left: {days_left}")
 
         try:
             c.execute("UPDATE website_checks SET cert_validity = ? WHERE websites = ?", (days_left, website))
             conn.commit()
-            debug and print("record inserted into website_checks ", days_left)
+            debug_print(f"record inserted into website_checks {days_left}")
         except sqlite3.Error as error:
             print("Failed to insert data into table", error)
 
@@ -524,7 +626,7 @@ def check_ssl_certificate_validity(website):
 
 
 def check_http_redirected_to_https(website: str) -> bool:
-    debug and print(f"=== check_http_redirected_to_https {website}")
+    debug_print(f"=== check_http_redirected_to_https {website}")
     outfile.write("\n===========Check HTTP redirect to HTTPS\n")
 
     try:
@@ -535,17 +637,17 @@ def check_http_redirected_to_https(website: str) -> bool:
             final_url = response.url
             if final_url.startswith('https://'):
                 check_redirect = 1
-                debug and print(f"{website} redirects HTTP to HTTPS")
+                debug_print(f"{website} redirects HTTP to HTTPS")
                 outfile.write(f"{website} redirects HTTP to HTTPS")
             else:
                 redirect_check = 0
-                debug and print(f"ERROR {website} does not redirect HTTP to HTTPS")
+                debug_print(f"ERROR {website} does not redirect HTTP to HTTPS")
                 outfile.write(f"ERROR {website} does not redirect HTTP to HTTPS")
 
             try:
                 c.execute("UPDATE website_checks SET redirect_check = ? WHERE websites = ?", (check_redirect, website))
                 conn.commit()
-                debug and print("record inserted into redirect_checks ", check_redirect)
+                debug_print(f"record inserted into redirect_checks {check_redirect}")
             except sqlite3.Error as error:
                 print("Failed to insert data into table", error)
                 return False
@@ -575,7 +677,7 @@ for website in inlines:
     check_date = datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
     outfile.write(website + " check performed on: " + check_date + "\n")
 
-    debug and print("\n==========",url)
+    debug_print(f"\n==============================================={url}")
 
     # only write the website name as primary key if there is no row with that info
     c.execute("INSERT INTO website_checks (websites) SELECT ? WHERE NOT EXISTS (SELECT 1 FROM website_checks WHERE websites = ?)", (website,website))
@@ -593,7 +695,8 @@ for website in inlines:
                 else:
                     get_ssl_labs_grade(website)
                 continue
-            header_check(website)
+            # header_check(website)
+            check_http_headers(website)
             check_versioninfo(url)
             error_check(url)
             robots_check(url)

@@ -6,7 +6,7 @@ import sys
 import datetime
 from datetime import date
 
-version = "v1.3, 20230322"
+version = "v1.4, 20230325"
 
 html_table = ""
 
@@ -60,9 +60,11 @@ table_headers = ['website',
                  'check date']
 
 # Using a loop to construct the header row
+count=0
 header_row = '<tr style="text-align: right;">'
 for header in table_headers:
-    header_row += f'<th>{header}</th>'
+        header_row += f'<th onclick="sortTable({count})">{header}</th>'
+        count += 1
 header_row += '</tr>'
 
 # Query the database website_checks and store the results in a dataframe
@@ -101,94 +103,92 @@ for row in result:
     redirect_check = row[10]
     debug and print(date_check, website, robo_check, head_check, vers_check, err_check, grad_check, grade, security_txt, cert_valid, redirect_check)
  
-    # debugfile = dir + "/" + website + ".txt"
-    debugfile = website + ".txt"
-    html_table = html_table +  "<tr><td class=\"url\"><a href=\"" + debugfile + "\">" + website + "</a></td>"
-
-    # https://www.freecodecamp.org/news/checkmark-symbol-html-for-checkmark-unicode/
-    # https://www.howtocodeschool.com/2020/09/cross-symbols.html
+    debugfile = f'{website}.txt'
+    html_table += f'<tr><td><a class="check" href=https://{website}>{website}</a></td>'
 
     if grad_check == 1:
-        html_table = html_table + "<td class=\"white\">"   # white for better readability
-        vtgradelink = '<a href="https://www.ssllabs.com/ssltest/analyze.html?d=' + website + '&hideResults=on">' + grade + '</a>'
+        html_table += '<td class="green">'
+        vtgradelink = f'<a href="https://www.ssllabs.com/ssltest/analyze.html?d={website}&hideResults=on">{grade}</a>'
     elif grad_check == 0:
-        html_table = html_table + "<td class=\"red\">"
-        vtgradelink = '<a href="https://www.ssllabs.com/ssltest/analyze.html?d=' + website + '&hideResults=on">' + grade + '</a>'
+        html_table += '<td class="red">'
+        vtgradelink = f'<a href="https://www.ssllabs.com/ssltest/analyze.html?d={website}&hideResults=on">{grade}</a>'
     else:
-        html_table = html_table + "<td class=\"orange\">"
-        vtgradelink = "<b>&quest;</b>"
-    html_table = html_table + vtgradelink + "</td>"
+        html_table += '<td class="orange">'
+        vtgradelink = '<b>&quest;</b>'
+    html_table += vtgradelink + "</td>"
 
     if grad_check == 1:
-        html_table = html_table + "<td class=\"green\">" + "&#x2705;" + "</td>"
+        html_table += f'<td class="green">&#x2705;</td>'
     elif grad_check == 0:
-        html_table = html_table + "<td class=\"red\">" + "&#10006;" + "</td>"
+        html_table += f'<td class="red">&#10006;</td>'
     else:
-        html_table = html_table + "<td class=\"orange\">" + "<b>&quest;</b>" + "</td>"
+        html_table += f'<td class="orange"><b>&quest;</b></td>'
 
     if redirect_check == 1:
-        html_table = html_table + "<td class=\"green\">" + "&#x2705;" + "</td>"
+        html_table += f'<td class="green">&#x2705;</td>'
     elif redirect_check == 0:
-        html_table = html_table + "<td class=\"red\">" + "&#10006;" + "</td>"
+        html_table += f'<td class="red">&#10006;</td>'
     else:
-        html_table = html_table + "<td class=\"orange\">" + "<b>&quest;</b>" + "</td>"
+        html_table += f'<td class="orange"><b>&quest;</b></td>'
 
     if cert_valid is None:
-        html_table = html_table + "<td class=\"orange\">" + "<b>&quest;</b>" + "</td>"
+        html_table += f'<td class="orange"><b>&quest;</b></td>'
     elif cert_valid > 29:
-        html_table = html_table + f"<td class=\"green\">{cert_valid}</td>"
+        html_table += f'<td class="green">{cert_valid}</td>'
     elif cert_valid < 30:
-        html_table = html_table + f"<td class=\"red\">{cert_valid}</td>"
+        html_table += f'<td class="red">{cert_valid}</td>'
     else:
-        html_table = html_table + "<td class=\"orange\">" + "<b>&quest;</b>" + "</td>"
+        html_table += f'<td class="orange"><b>&quest;</b></td>'
 
     if head_check == 1:
-        html_table = html_table + "<td class=\"green\">" + "&#x2705;" + "</td>"
+        html_table += f'<td class="green">&#x2705;</td>'
     elif head_check == 0:
-        html_table = html_table + "<td class=\"red\">" + "&#10006;" + "</td>"
+        html_table += f'<td class="red">&#10006;</td>'
     else:
-        html_table = html_table + "<td class=\"orange\">" + "<b>&quest;</b>" + "</td>"
+        html_table += f'<td class="orange"><b>&quest;</b></td>'
 
     if security_txt == 1:
-        sectxtlink = '<a href="https://' + website +'/.well-known/security.txt">' + "&#x2705;" + "</a>"
-        html_table = html_table + "<td class=\"green\">" + sectxtlink + "</td>"
+        sectxtlink = f'<a class="check" href="https://{website}/.well-known/security.txt">&#x2705;</a>'
+        html_table += f'<td class="green">{sectxtlink}</td>'
     elif security_txt == 0:
-        html_table = html_table + "<td class=\"red\">" + "&#10006;" + "</td>"
+        html_table += f'<td class="red">&#10006;</td>'
     else:
-        html_table = html_table + "<td class=\"orange\">" + "<b>&quest;</b>" + "</td>"
-
+        html_table += f'<td class="orange"><b>&quest;</b></td>'
            
+    robo_url = f'<a class="check" href="https://{website}/robots.txt">'
     if robo_check == 1:
-        html_table = html_table + "<td class=\"green\">" + "&#x2705;" + "</td>"
+        html_table += f'<td class="green">{robo_url}&#x2705;</a></td>'
     elif robo_check == 0:
-        html_table = html_table + "<td class=\"red\">" + "&#10006;" + "</td>"
+        html_table += f'<td class="red">{robo_url}&#10006;</a></td>'
     else:
-        html_table = html_table + "<td class=\"orange\">" + "<b>&quest;</b>" + "</td>"
+        html_table += f'<td class="orange">{robo_url}<b>&quest;</b></a></td>'
 
     if vers_check == 1:
-        html_table = html_table + "<td class=\"green\">" + "&#x2705;" + "</td>"
+        html_table += f'<td class="green">&#x2705;</td>'
     elif vers_check == 0:
-        html_table = html_table + "<td class=\"red\">" + "&#10006;" + "</td>"
+        html_table += f'<td class="red">&#10006;</td>'
     else:
-        html_table = html_table + "<td class=\"orange\">" + "<b>&quest;</b>" + "</td>"
+        html_table += f'<td class="orange"><b>&quest;</b></td>'
 
     if err_check == 1:
-        html_table = html_table + "<td class=\"green\">" + "&#x2705;" + "</td>"
+        html_table += f'<td class="green">&#x2705;</td>'
     elif err_check == 0:
-        html_table = html_table + "<td class=\"red\">" + "&#10006;" + "</td>"
+        html_table += f'<td class="red">&#10006;</td>'
     else:
-        html_table = html_table + "<td class=\"orange\">" + "<b>&quest;</b>" + "</td>"
+        html_table += f'<td class="orange"><b>&quest;</b></td>'
 
 
-    html_table = html_table + "<td>" + date_check + "</td>"
-    html_table = html_table + "</td></tr>\n"
+    html_table += f'<td><a class="check" href={debugfile}>{date_check}</td></tr>\n'
 
 # Close the connection to the database
 conn.close()
 
 with open('styles.css', 'r') as f:
     css_styles = f.read()
-    
+
+with open('sort.js', 'r') as f:
+    sort_js = f.read()
+
 # Create the complete HTML page, the {} below will be replaced with the content of the variables at the end
 html_page = """
 <!DOCTYPE html>
@@ -200,7 +200,8 @@ html_page = """
     </style>
 </head>
 <body>
-    <table border="1" class="dataframe mystyle" id="table">
+    {}
+  <table border="1" class="dataframe mystyle" id="myTable">
   <thead>
     {}
   </thead>
@@ -209,13 +210,15 @@ html_page = """
   </tbody>
   </table>
   <br />
-  if the security.txt entry has a green checkbox, then it's a link you can click <br />
-  this table is generated with:<br />
-  <a class="white" href="https://github.com/beamzer/ScirtScan">https://github.com/beamzer/ScirtScan</a><br />
-  Click here for a: <a class="white" href="website_checks.xlsx">Excel file with this table</a><br />
+  This overview is generated with: <a href="https://github.com/beamzer/ScirtScan">https://github.com/beamzer/ScirtScan</a><br /><br />
+  Clicks on table headers will result in sorting or reverse sorting on that column content <br />
+  In the security.txt column clicks on green checkbox will show the contents of that URL <br />
+  Clicking in the robots.txt column on the checkmarks will try to open that URL<br />
+  Click here for a: <a href="website_checks.xlsx">Excel file with the contents of this table</a><br />
+  Click here for a: <a href="debug.log">debug.log</a> unless scirtscan was run with --no_debugfile<br />
 </body>
 </html>
-""".format(css_styles, header_row, html_table)
+""".format(css_styles, sort_js, header_row, html_table)
 
 myindex = directory_path + "/" + "index.html"
 try:

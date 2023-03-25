@@ -13,17 +13,14 @@ This tool takes a list of websites and performs the following checks:
 * Check on redirects from HTTP to HTTPS
 * Presence of .well-known/security.txt see [https://securitytxt.org/](https://securitytxt.org/)
 * Check on Cerificate validity lifetime left
+* Check on HSTS lifetime (if present)
 
 Information is stored in a Sqlite database and sql2html.py creates an nice index.html from that database.  
 All checks have debug logging which is stored in the output directory in a per website name, 
 this can be usefull to review the status at a certain point in time.
 
 ## Requirements
-scirtscan.py assumes you have the following software in your path:
-> https://github.com/santoru/shcheck  
-> ~~https://github.com/ssllabs/ssllabs-scan~~ (is now native through the API)
-
-Also see requirements.txt and as usual perform the following command to satisfy those:
+See requirements.txt and as usual perform the following command to satisfy those:
 > pip3 install -r requirements.txt
  
 (or use your OS package management tools)

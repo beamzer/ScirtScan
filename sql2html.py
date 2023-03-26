@@ -52,7 +52,7 @@ table_headers = ['website',
                  'grade<br>check',
                  'HTTPS<br>redirect',
                  'certificate<br>validity',
-                 'HSTS',
+                 'HSTS<br>(days)',
                  'headers', 
                  'security<br>.txt', 
                  'robots<br>.txt', 
@@ -81,7 +81,7 @@ sql_query = ("SELECT websites, "
              "security_txt, "
              "cert_validity, "
              "redirect_check, "
-             "hsts<br>(days) "
+             "hsts "
              "FROM website_checks")
 
 cs = conn.cursor()

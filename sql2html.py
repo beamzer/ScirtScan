@@ -6,7 +6,7 @@ import sys
 import datetime
 from datetime import date
 
-version = "v1.5, 20230326"
+version = "v1.5b, 20230326"
 
 html_table = ""
 
@@ -81,7 +81,7 @@ sql_query = ("SELECT websites, "
              "security_txt, "
              "cert_validity, "
              "redirect_check, "
-             "hsts "
+             "hsts<br>(days) "
              "FROM website_checks")
 
 cs = conn.cursor()
@@ -146,7 +146,7 @@ for row in result:
 
     if hsts is None:
         html_table += f'<td class="red">&#10006;</td>'
-    elif hsts >= 31536000:
+    elif hsts >= 365:
         html_table += f'<td class="green">{hsts}</td>'
     else:
         html_table += f'<td class="red">{hsts}</td>'

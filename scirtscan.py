@@ -272,10 +272,11 @@ def check_http_headers(website):
         check_header = 0
 
     if hsts_duration is not None:
+        hsts_duration_days = int(hsts_duration/365)
         if hsts_duration >= 31536000:
-            outfile.write(f"OK, {website} has HSTS value of at least one year: {hsts_duration} seconds\n")
+            outfile.write(f"OK, {website} has HSTS value of at least one year: {hsts_duration_days} days\n")
         else:
-            outfile.write(f"ERR, {website} HSTS value is LESS than one year: {hsts_duration} seconds\n")
+            outfile.write(f"ERR, {website} HSTS value is LESS than one year: {hsts_duration_days} days\n")
             check_header = 0
     else:
         outfile.write(f"ERR {website} is missing Strict-Transport-Security header\n")
@@ -286,7 +287,7 @@ def check_http_headers(website):
 
     try:
         c.execute("UPDATE website_checks SET headers_check = ? WHERE websites = ?", (check_header, website))
-        c.execute("UPDATE website_checks SET hsts = ? WHERE websites = ?", (hsts_duration, website))
+        c.execute("UPDATE website_checks SET hsts = ? WHERE websites = ?", (hsts_duration_days, website))
         conn.commit()
         debug_print(f"record inserted into website_checks {check_header}")
     except sqlite3.Error as error:
@@ -536,35 +537,35 @@ def check_testssl(website):
         return False
 
     try:
-        output = subprocess.check_output([testssl_path, "--log", "--color", "0", website])
+        output = subprocess.check_output([testssl_path, "--color", "0", website])
         output = output.decode('utf-8')
 
         outfile.write(f"{output}")
 
-        overall_grade = None
+        grade = None
         match = re.search(r"Overall\s+Grade\s+([A-F][+-]?|-)", output)
 
         if match:
             grade = match.group(1)
-
-        # return overall_grade
+            debug_print(f"grade: {grade}")
 
     except subprocess.CalledProcessError as e:
         print(f"Error running testssl.sh: {e}")
-        return None
+        return False
 
-    regexp = re.compile(r'A')         # anything from an A- and better is good for us
-    if regexp.search(grade):
-        check_score = 1
-    else:
-        check_score = 0
+    if grade is not None:
+        regexp = re.compile(r'A')         # anything from an A- and better is good for us
+        if regexp.search(grade):
+            check_score = 1
+        else:
+            check_score = 0
 
-    try:
-        c.execute("UPDATE website_checks SET grade = ?, grade_check = ? WHERE websites = ?", (grade,check_score, website))
-        conn.commit()
-        debug_print(f"ssllabs record inserted into website_checks {check_score}")
-    except sqlite3.Error as error:
-        print("Failed to insert data into table", error)
+        try:
+            c.execute("UPDATE website_checks SET grade = ?, grade_check = ? WHERE websites = ?", (grade,check_score, website))
+            conn.commit()
+            debug_print(f"ssllabs record inserted into website_checks {check_score}")
+        except sqlite3.Error as error:
+            print("Failed to insert data into table", error)
 
 ###########################################################################################################
 # CVD (Coordinated Vulnerability Disclosure) requires security contact information to be present on this URL
@@ -643,7 +644,9 @@ def check_ssl_certificate_validity(website):
         # If the certificate is invalid, return False
         return False
 
-
+###########################################################################################################
+# check if HTTP requests are redirected to HTTPS
+#
 def check_http_redirected_to_https(website: str) -> bool:
     debug_print(f"=== check_http_redirected_to_https {website}")
     outfile.write("\n===========Check HTTP redirect to HTTPS\n")

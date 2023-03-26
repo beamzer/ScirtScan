@@ -14,6 +14,7 @@ import datetime
 import subprocess
 from subprocess import Popen
 import dns.resolver
+from pprint import pformat
 
 version = "v1.5, 20230326"
 
@@ -225,6 +226,7 @@ import requests
 # Check that certain security headers are present in the HTTP header
 def check_http_headers(website):
     debug_print(f"=== check_http_headers {website}")
+    outfile.write(f'\n===========HTTP Headers Check\n')
     url = f'https://{website}'
 
     headers_to_check = {
@@ -239,16 +241,17 @@ def check_http_headers(website):
         response = requests.get(url)
     except requests.exceptions.RequestException as e:
         print(f"Error connecting to {website}: {e}")
+        outfile.write(f"Error connecting to {website}: {e}\n")
         return
 
     missing_headers = []
     hsts_duration = None
-    check_header = 1 
-
-    debug_print(f'{response.headers}')
+    check_header = 1
 
     for header in headers_to_check:
+        outfile.write(f'checking precense of: {header} ')
         if header in response.headers:
+            outfile.write(f'PRESENT\n')
             if header == "Strict-Transport-Security":
                 hsts_value = response.headers[header]
                 hsts_parts = hsts_value.split(";")
@@ -256,21 +259,25 @@ def check_http_headers(website):
                 if max_age:
                     hsts_duration = int(max_age.split("=")[1].strip())
         else:
+            outfile.write(f'NOT PRESENT\n')
             missing_headers.append(header)
 
     if missing_headers:
-        debug_print(f"Missing headers for {website}: {', '.join(missing_headers)}")
+        outfile.write(f"ERR Missing headers for {website}: {', '.join(missing_headers)}")
         check_header = 0
 
     if hsts_duration is not None:
         if hsts_duration >= 31536000:
-            debug_print(f"OK, {website} has HSTS value of at least one year: {hsts_duration} seconds")
+            outfile.write(f"OK, {website} has HSTS value of at least one year: {hsts_duration} seconds\n")
         else:
-            debug_print(f"ERR, {website} HSTS value is LESS than one year: {hsts_duration} seconds")
+            outfile.write(f"ERR, {website} HSTS value is LESS than one year: {hsts_duration} seconds\n")
             check_header = 0
     else:
-        debug_print(f"{website} is missing Strict-Transport-Security header")
+        outfile.write(f"ERR {website} is missing Strict-Transport-Security header\n")
         check_header = 0
+
+    headers_formatted = pformat(dict(response.headers))
+    outfile.write(f'{headers_formatted}\n')
 
     try:
         c.execute("UPDATE website_checks SET headers_check = ? WHERE websites = ?", (check_header, website))
@@ -281,93 +288,35 @@ def check_http_headers(website):
         print("Failed to insert data into table", error)
 
 
-
-###########################################################################################################
-# Check that certain security headers are present in the HTTP header
-# we'll use https://github.com/santoru/shcheck for this, because why reinvent the wheel
-#
-def header_check(website):
-    debug_print(f"=== header_check {website}")
-    try:
-        url = 'https://' + website
-        try:
-            process = subprocess.run(['shcheck.py',"-j", "-d", url], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        except OSError as e:
-            print(f"shcheck didn't like that: {e}")
-
-        output = process.stdout.decode()
-        # debug_print(f"shcheck stdout: {output}")
-        # err = process.stderr.decode()
-        # debug_print(f"shcheck stderr: {err}")
-
-        if "URL Returned an HTTP error:" in output:
-            print("ERR: looks like this is a dead-end street, bailing out of header_check")
-            return
-
-        data = json.loads(output)
-        output = json.dumps(data,indent=2)
-
-
-        outfile.write("\n===========Header Check\n")
-        outfile.write(output + "\n")
-
-        check = "OK"
-        check_header = 1
-        for jsonName,jsonObject in data.items():
-            x = data[jsonName]["present"]
-            if "X-XSS-Protection" not in x:
-                check = "NOK"
-            if "X-Frame-Options" not in x:
-                check = "NOK"
-            if "X-Content-Type-Options" not in x:
-                check = "NOK"
-            if "Strict-Transport-Security" not in x:
-                check = "NOK"
-            if "Referrer-Policy" not in x:
-                check = "NOK"
-        if check == "NOK":
-            check_header = 0
-
-        try:
-            c.execute("UPDATE website_checks SET headers_check = ? WHERE websites = ?", (check_header, website))
-            conn.commit()
-            debug_print(f"record inserted into website_checks {check_header}")
-        except sqlite3.Error as error:
-            print("Failed to insert data into table", error)
-
-        return check
-    except KeyboardInterrupt:
-        sys.exit()
-    except OSError as error:
-        print(error)
-
 ###########################################################################################################
 # this is a very rudimentary check to see if version numbers are present in the HTTP headers
 # at the moment this is purely done by looking for numbers in the HTTP server or x-generator header field
 #
 def check_versioninfo(url):
     debug_print(f"=== check_versioninfo {url}")
+    outfile.write("\n===========Version Info CHECK\n")
+
     try: 
         result = "OK"       # we'll assume OK unless proven otherwise
         check_version = 1
 
         r = requests.head(url, headers=headers, allow_redirects=True, timeout=2)
         if 'server' in r.headers:
-            if re.match(r".*[0-9].*", r.headers['server']):
+            sh = r.headers['server']
+            if re.match(r".*[0-9].*", sh):
+                outfile.write(f'Looks like version info: {sh}\n')
                 result = "NOK"
                 check_version = 0
 
         if 'x-generator' in r.headers:
-            if re.match(r".*[0-9].*", r.headers['x-generator']):
+            xh = r.headers['x-generator']
+            if re.match(r".*[0-9].*", xh):
+                outfile.write(f'Looks like version info: {xh}\n')
                 result = "NOK"
                 check_version = 0
 
         # output = process.stdout.decode()
-        outfile.write("\n===========Version Info CHECK\n")
-        outfile.write(result + "\n")
-
-        outfile.write(str(r.headers))
-        outfile.write("\n")
+        outfile.write(f'{result}\n')
 
         try:
             c.execute("UPDATE website_checks SET version_check = ? WHERE websites = ?", (check_version, website))
@@ -528,14 +477,16 @@ def get_ssl_labs_grade(website: str, use_cache=True) -> str:
         host = result['host']
         ipAddress = result['endpoints'][0]['ipAddress']
         debug_print(f"grade = {grade}, host = {host}, IP-Address = {ipAddress}")
+        outfile.write(f"grade = {grade}, host = {host}, IP-Address = {ipAddress}")
         # return grade
     else:
         print(f"Error: ssllabs check could not be completed for {website}")
+        outfile.write(f"Error: ssllabs check could not be completed for {website}")
         return None
 
     # Parse JSON data and write to logfile
     json_formatted_str = json.dumps(result, indent=2)
-    outfile.write(json_formatted_str)
+    outfile.write(f'{json_formatted_str}\n')
 
     #regexp = re.compile(r'A\+')      # change A+ to something else if your policy requires differently
     regexp = re.compile(r'A')         # anything from an A- and better is good for us
@@ -571,6 +522,7 @@ def check_security_file(website):
             
     except requests.exceptions.RequestException as e:
         print(f"An error occurred while checking the security file: {e}")
+        outfile.write(f"An error occurred while checking the security file: {e}\n")
 
     try:
         c.execute("UPDATE website_checks SET security_txt = ? WHERE websites = ?", (check_security_file, website))
@@ -606,12 +558,14 @@ def check_ssl_certificate_validity(website):
         cert_expiration = datetime.datetime.strptime(cert_info['notAfter'], '%b %d %H:%M:%S %Y %Z')
         current_time = datetime.datetime.utcnow()
         days_left = (cert_expiration - current_time).days
-        outfile.write(f"certificate expiration: {cert_expiration}")
-        outfile.write(f"time of check (utc)   : {current_time}")
-        outfile.write(f"certificate days left : {days_left}")
-        debug_print(f"certificate expiration: {cert_expiration}")
-        debug_print(f"time of check (utc)   : {current_time}")
-        debug_print(f"certificate  days left: {days_left}")
+        if days_left > 29:
+            outfile.write("OK\n")
+        outfile.write(f"certificate expiration: {cert_expiration}\n")
+        outfile.write(f"time of check (utc)   : {current_time}\n")
+        outfile.write(f"certificate days left : {days_left}\n")
+        # debug_print(f"certificate expiration: {cert_expiration}")
+        # debug_print(f"time of check (utc)   : {current_time}")
+        # debug_print(f"certificate  days left: {days_left}")
 
         try:
             c.execute("UPDATE website_checks SET cert_validity = ? WHERE websites = ?", (days_left, website))
@@ -639,12 +593,10 @@ def check_http_redirected_to_https(website: str) -> bool:
             final_url = response.url
             if final_url.startswith('https://'):
                 check_redirect = 1
-                debug_print(f"{website} redirects HTTP to HTTPS")
-                outfile.write(f"{website} redirects HTTP to HTTPS")
+                outfile.write(f"{website} redirects HTTP to HTTPS\n")
             else:
                 redirect_check = 0
-                debug_print(f"ERROR {website} does not redirect HTTP to HTTPS")
-                outfile.write(f"ERROR {website} does not redirect HTTP to HTTPS")
+                outfile.write(f"ERR {website} does not redirect HTTP to HTTPS\n")
 
             try:
                 c.execute("UPDATE website_checks SET redirect_check = ? WHERE websites = ?", (check_redirect, website))
@@ -656,7 +608,7 @@ def check_http_redirected_to_https(website: str) -> bool:
 
     except requests.exceptions.RequestException as e:
         print(f"Error: {e}")
-        outfile.write(f"Error: {e}")
+        outfile.write(f"Error: {e}\n")
         return False
 
     return True
@@ -710,6 +662,8 @@ for website in inlines:
                     get_ssl_labs_grade(website, use_cache=False)
                 else:
                     get_ssl_labs_grade(website)
+            else:
+                outfile.write('\n===========SSL/TLS Configuration CHECK\nSkipped because use of -xq\n')
         except KeyboardInterrupt:
             sys.exit("as you wish, aborting...")
         except OSError as e:

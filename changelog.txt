@@ -17,6 +17,7 @@ v2.0, upcoming
 
 v1.5, 20230326
 	* HSTS duration is now stored separately and shown in a seperate column
+	* improved per-website logging
 
 v1.4, 20230325
 	* removing the dependency of shcheck.py and doing these checks from

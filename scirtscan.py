@@ -273,7 +273,7 @@ def check_http_headers(website):
         check_header = 0
 
     if hsts_duration is not None:
-        hsts_duration_days = int(hsts_duration/(365*3600))
+        hsts_duration_days = int(hsts_duration/(24*3600))
         if hsts_duration >= 31536000:
             outfile.write(f"OK, {website} has HSTS value of at least one year: {hsts_duration_days} days\n")
         else:

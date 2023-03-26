@@ -16,7 +16,7 @@ from subprocess import Popen
 import dns.resolver
 from pprint import pformat
 
-version = "v1.5a, 20230326"
+version = "v1.5b, 20230326"
 
 
 current_time = datetime.datetime.now()
@@ -251,6 +251,7 @@ def check_http_headers(website):
 
     missing_headers = []
     hsts_duration = None
+    hsts_duration_days = None
     check_header = 1
 
     for header in headers_to_check:

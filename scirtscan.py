@@ -16,7 +16,7 @@ from subprocess import Popen
 import dns.resolver
 from pprint import pformat
 
-version = "v1.5, 20230326"
+version = "v1.5a, 20230326"
 
 
 current_time = datetime.datetime.now()
@@ -38,6 +38,7 @@ parser.add_argument('-a','--anon', action='store_true', help='don\'t modify user
 parser.add_argument('-v','--version', action='store_true', help='show version info and exit')
 parser.add_argument('-nq','--no_qualys', action='store_true', help='exclude qualys ssltest')
 parser.add_argument('-oq','--only_qualys', action='store_true', help='only do qualys ssltest (skip other tests)')
+parser.add_argument('-t','--testssl', action='store_true', help='use locally installed testssl.sh instead of qualys')
 parser.add_argument('-nc','--no_cache', action='store_true', help='always request fresh tests from qualys')
 parser.add_argument('-ndf', '--no_debugfile', action='store_true', help='Don\'t save debug output to debug.log in the YYYYMMDD directory')
 parser.add_argument('filename', metavar='FILENAME', type=str, nargs='?', const=None, help='filename with list of websites')
@@ -90,6 +91,10 @@ if oqualys:
 nocache = args.no_cache
 if nocache:
     debug_print("not requesting cached results from qualys ssltest")
+
+testssl = args.testssl
+if testssl:
+    debug_print("using locally installed testssh.sh instead of Qualys SSLtest")
 
 filename = args.filename
 
@@ -440,10 +445,7 @@ def error_check(url):
         print(error)
 
 ###########################################################################################################
-# This checks that the website has an A+ grade on the Qualys SSLtest ( https://www.ssllabs.com/ssltest/ )
-# by requiring an A+ score our security policy is future proof, since Qualys will modify the grading scores when certain
-# algorithms become unsafe to use.
-# Maybe your policy requires an other SSL/TLS check, you can easily cater for that by defining and using your own check function
+# This checks that the website has the right grade on the Qualys SSLtest ( https://www.ssllabs.com/ssltest/ )
 #
 def get_ssl_labs_grade(website: str, use_cache=True) -> str:
     debug_print(f"=== get_ssllabs_grade {website}")
@@ -521,6 +523,48 @@ def get_ssl_labs_grade(website: str, use_cache=True) -> str:
     except sqlite3.Error as error:
         print("Failed to insert data into table", error)
 
+###########################################################################################################
+# This checks that the website has the right grade according to Qualys SSLtest by using testssl.sh
+#
+def check_testssl(website):
+    debug_print(f"=== testssl.sh {website}")
+    outfile.write("\n===========SSL/TLS Configuration with testssl.sh CHECK\n")
+
+    testssl_path = "/usr/local/bin/testssl.sh"  # Replace this with the path to your testssl.sh script
+    if not os.path.exists(testssl_path):
+        print(f"Skipping testssl.sh check because the path is invalid {testssl_path}")
+        return False
+
+    try:
+        output = subprocess.check_output([testssl_path, "--log", "--color", "0", website])
+        output = output.decode('utf-8')
+
+        outfile.write(f"{output}")
+
+        overall_grade = None
+        match = re.search(r"Overall\s+Grade\s+([A-F][+-]?|-)", output)
+
+        if match:
+            grade = match.group(1)
+
+        # return overall_grade
+
+    except subprocess.CalledProcessError as e:
+        print(f"Error running testssl.sh: {e}")
+        return None
+
+    regexp = re.compile(r'A')         # anything from an A- and better is good for us
+    if regexp.search(grade):
+        check_score = 1
+    else:
+        check_score = 0
+
+    try:
+        c.execute("UPDATE website_checks SET grade = ?, grade_check = ? WHERE websites = ?", (grade,check_score, website))
+        conn.commit()
+        debug_print(f"ssllabs record inserted into website_checks {check_score}")
+    except sqlite3.Error as error:
+        print("Failed to insert data into table", error)
 
 ###########################################################################################################
 # CVD (Coordinated Vulnerability Disclosure) requires security contact information to be present on this URL
@@ -676,13 +720,16 @@ for website in inlines:
             check_security_file(website)
             check_ssl_certificate_validity(website)
             check_http_redirected_to_https(website)
-            if not xqualys:
-                if nocache:
-                    get_ssl_labs_grade(website, use_cache=False)
-                else:
-                    get_ssl_labs_grade(website)
+            if testssl:
+                check_testssl(website)
             else:
-                outfile.write('\n===========SSL/TLS Configuration CHECK\nSkipped because use of -xq\n')
+                if not xqualys:
+                    if nocache:
+                        get_ssl_labs_grade(website, use_cache=False)
+                    else:
+                        get_ssl_labs_grade(website)
+                else:
+                    outfile.write('\n===========SSL/TLS Configuration CHECK\nSkipped because use of -nq\n')
         except KeyboardInterrupt:
             sys.exit("as you wish, aborting...")
         except OSError as e:

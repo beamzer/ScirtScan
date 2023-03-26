@@ -15,10 +15,33 @@ table.mystyle th {
   transform: rotate(0deg);
   background-color: blue;
   color: yellow;
+  text-decoration: underline;
+  cursor: help;
+  position: relative;
+}
+
+th:hover .explanation {
+  display: block;
 }
 
 table.mystyle td {
   text-align: center;
+}
+
+.explanation {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  padding: 5px;
+  background-color: #fff;
+  color: black;
+  border: 1px solid #ccc;
+  box-shadow: 0 2px 2px rgba(0,0,0,.3);
+  z-index: 1;
+  font-size: 12px;
+  line-height: 1.5;
+  min-width: 100px;
 }
 
 .blue {   background: blue; }
@@ -29,12 +52,15 @@ table.mystyle td {
 .black { background: black; }
 .url { color: black ; background-color: white }
 
+
 a:link {
     color: magenta;
 }
+
 a:visited {
     color: yellow;
 }
+
 a.check:link,
 a.check:visited {
     color: inherit;

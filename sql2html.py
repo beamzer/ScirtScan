@@ -6,7 +6,7 @@ import sys
 import datetime
 from datetime import date
 
-version = "v1.4, 20230325"
+version = "v1.5, 20230326"
 
 html_table = ""
 
@@ -52,9 +52,10 @@ table_headers = ['website',
                  'grade<br>check',
                  'HTTPS<br>redirect',
                  'certificate<br>validity',
+                 'HSTS',
                  'headers', 
-                 'security.txt', 
-                 'robots.txt', 
+                 'security<br>.txt', 
+                 'robots<br>.txt', 
                  'version', 
                  'error', 
                  'check date']
@@ -63,7 +64,8 @@ table_headers = ['website',
 count=0
 header_row = '<tr style="text-align: right;">'
 for header in table_headers:
-        header_row += f'<th onclick="sortTable({count})">{header}</th>'
+        header_row += f'<th onclick="sortTable({count})">{header}'
+        header_row += '<div class="explanation">click to sort</div></th>'
         count += 1
 header_row += '</tr>'
 
@@ -78,7 +80,8 @@ sql_query = ("SELECT websites, "
              "check_date, "
              "security_txt, "
              "cert_validity, "
-             "redirect_check "
+             "redirect_check, "
+             "hsts "
              "FROM website_checks")
 
 cs = conn.cursor()
@@ -101,7 +104,8 @@ for row in result:
     security_txt = row[8]
     cert_valid = row[9]
     redirect_check = row[10]
-    debug and print(date_check, website, robo_check, head_check, vers_check, err_check, grad_check, grade, security_txt, cert_valid, redirect_check)
+    hsts = row[11]
+    debug and print(date_check, website, robo_check, head_check, vers_check, err_check, grad_check, grade, security_txt, cert_valid, redirect_check, hsts)
  
     debugfile = f'{website}.txt'
     html_table += f'<tr><td><a class="check" href=https://{website}>{website}</a></td>'
@@ -139,6 +143,14 @@ for row in result:
         html_table += f'<td class="red">{cert_valid}</td>'
     else:
         html_table += f'<td class="orange"><b>&quest;</b></td>'
+
+    if hsts is None:
+        html_table += f'<td class="red">&#10006;</td>'
+    elif hsts >= 31536000:
+        html_table += f'<td class="green">{hsts}</td>'
+    else:
+        html_table += f'<td class="red">{hsts}</td>'
+
 
     if head_check == 1:
         html_table += f'<td class="green">&#x2705;</td>'

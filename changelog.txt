@@ -15,6 +15,9 @@ v2.0, upcoming
 	* will look into an option to specify primary websites (e.g.  www.company.tld ) 
 	and have those shown first in the webpage
 
+v1.5, 20230326
+	* HSTS duration is now stored separately and shown in a seperate column
+
 v1.4, 20230325
 	* removing the dependency of shcheck.py and doing these checks from
 	within the function & writing all raw headers to the per website logfile.

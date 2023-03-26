@@ -15,7 +15,7 @@ import subprocess
 from subprocess import Popen
 import dns.resolver
 
-version = "v1.4, 20230325"
+version = "v1.5, 20230326"
 
 
 current_time = datetime.datetime.now()
@@ -152,7 +152,8 @@ c.execute('''CREATE TABLE IF NOT EXISTS website_checks
                 check_date TEXT,
                 security_txt INT,
                 redirect_check INT,
-                cert_validity INT
+                cert_validity INT,
+                hsts INT
             )''')
 
 
@@ -273,6 +274,7 @@ def check_http_headers(website):
 
     try:
         c.execute("UPDATE website_checks SET headers_check = ? WHERE websites = ?", (check_header, website))
+        c.execute("UPDATE website_checks SET hsts = ? WHERE websites = ?", (hsts_duration, website))
         conn.commit()
         debug_print(f"record inserted into website_checks {check_header}")
     except sqlite3.Error as error:

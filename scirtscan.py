@@ -454,7 +454,26 @@ def get_ssl_labs_grade(website: str, use_cache=True) -> str:
     analyze_url = f"{base_url}/analyze?host={website}&publish=off&all=done&fromCache={cache_param}"
     
     # Start the analysis
-    response = requests.get(analyze_url, headers=aheaders)        # this is a normal API call, so we use our normal headers here
+    try:
+        response = requests.get(analyze_url, headers=aheaders)        # this is a normal API call, so we use our normal headers here
+        response.raise_for_status()
+    except requests.exceptions.Timeout:
+        debug_print(f"timeout error connecting to ssllabs")
+        outfile.write("timeout error connecting to ssllabs\n")
+        return False
+    except requests.exceptions.TooManyRedirects:
+        debug_print(f"too many redirects while connecting to ssllabs")
+        outfile.write("too many redirects while  connecting to ssllabs\n")
+        return False
+    except requests.exceptions.HTTPError as e:
+        debug_print(f"error while connecting to ssllabs: {e}")
+        outfile.write(f"error while  connecting to ssllabs: {e}\n")
+        return False
+    except requests.exceptions.RequestException as e:
+        debug_print(f"error while connecting to ssllabs: {e}")
+        outfile.write(f"error while  connecting to ssllabs: {e}\n")
+        return False
+
     result = response.json()
 
 # wait times are per Qualys API v3 documentation, see:

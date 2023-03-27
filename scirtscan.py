@@ -18,7 +18,6 @@ from pprint import pformat
 
 version = "v1.5b, 20230327"
 
-
 current_time = datetime.datetime.now()
 time_string = current_time.strftime("%Y-%m-%d %H:%M:%S")    # Format the time as a string
 
@@ -663,11 +662,13 @@ def check_http_redirected_to_https(website: str) -> bool:
             if final_url.startswith('https://'):
                 check_redirect = 1
                 outfile.write(f"{website} redirects HTTP to HTTPS\n")
-                outfile.write(f"{headers_formatted}\n")
             else:
                 redirect_check = 0
                 outfile.write(f"ERR {website} does not redirect HTTP to HTTPS\n")
-                outfile.write(f"{headers_formatted}\n")
+            
+            outfile.write(f"HTTP request returns response code: {response.status_code}\n")
+            outfile.write(f"final URL is: {final_url}\n")
+            outfile.write(f"{headers_formatted}\n")
 
             try:
                 c.execute("UPDATE website_checks SET redirect_check = ? WHERE websites = ?", (check_redirect, website))

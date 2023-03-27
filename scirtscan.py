@@ -269,7 +269,7 @@ def check_http_headers(website):
             missing_headers.append(header)
 
     if missing_headers:
-        outfile.write(f"ERR Missing headers for {website}: {', '.join(missing_headers)}")
+        outfile.write(f"ERR Missing headers for {website}: {', '.join(missing_headers)}\n")
         check_header = 0
 
     if hsts_duration is not None:
@@ -584,6 +584,9 @@ def check_security_file(website):
             outfile.write(response.text)
         else:
             outfile.write("NOK\n")
+            headers_formatted = pformat(dict(response.headers))
+            outfile.write(f"HTTP response code: {response.status_code}\n")
+            outfile.write(f"{headers_formatted}\n")
             
     except requests.exceptions.RequestException as e:
         print(f"An error occurred while checking the security file: {e}")
@@ -654,19 +657,22 @@ def check_http_redirected_to_https(website: str) -> bool:
 
     try:
         http_url = f'http://{website}'
-        response = requests.get(http_url, allow_redirects=True, timeout=10, headers=headers)
+        response = requests.get(http_url, allow_redirects=False, timeout=10, headers=headers)
         headers_formatted = pformat(dict(response.headers))
+        response_code = response.status_code
+
+        response = requests.get(http_url, allow_redirects=True, timeout=10, headers=headers)
 
         if response.history:
             final_url = response.url
             if final_url.startswith('https://'):
                 check_redirect = 1
-                outfile.write(f"{website} redirects HTTP to HTTPS\n")
+                outfile.write(f"{http_url} redirects HTTP to HTTPS\n")
             else:
                 redirect_check = 0
-                outfile.write(f"ERR {website} does not redirect HTTP to HTTPS\n")
+                outfile.write(f"ERR {http_url} does not redirect HTTP to HTTPS\n")
             
-            outfile.write(f"HTTP request returns response code: {response.status_code}\n")
+            outfile.write(f"HTTP request returns response code: {response_code}\n")
             outfile.write(f"final URL is: {final_url}\n")
             outfile.write(f"{headers_formatted}\n")
 

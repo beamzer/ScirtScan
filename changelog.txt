@@ -15,6 +15,11 @@ v2.0, upcoming
 	* will look into an option to specify primary websites (e.g.  www.company.tld ) 
 	and have those shown first in the webpage
 
+v1.5b, 20230327
+	* HTST info is now in days so it's human readable
+	* finally fixed sql2exel.py to match the extra checks that are present
+	since v1.3
+
 v1.5, 20230326
 	* HSTS duration is now stored separately and shown in a seperate column
 	* improved per-website logging

@@ -224,7 +224,7 @@ html_page = """
   <br />
   This overview is generated with: <a href="https://github.com/beamzer/ScirtScan">https://github.com/beamzer/ScirtScan</a><br /><br />
   Clicks on table headers will result in sorting or reverse sorting on that column content <br />
-  &#187;Click on the date fiel to see the details for that website<br />
+  &#187; Click on the date field to see the details for that website<br />
   In the security.txt column clicks on green checkbox will show the contents of that URL <br />
   Clicking in the robots.txt column on the checkmarks will try to open that URL<br />
   Click here for a: <a href="website_checks.xlsx">Excel file with the contents of this table</a><br />

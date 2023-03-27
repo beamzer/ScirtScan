@@ -31,4 +31,5 @@
             table.tBodies[0].appendChild(sorted[i - 1]);
         }
     }
+
 </script>

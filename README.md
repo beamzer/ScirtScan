@@ -6,16 +6,19 @@
 This tool takes a list of websites and performs the following checks:
 
 * TLS/SSL check based on the Qualys SSL Scanner
-* precense of robots.txt with only Allow statements
-* HTTP headers check, certain headers should be present
-* HTTP headers check, no version information should be divulged
-* HTTP Error page, no product information and/of version information should be divulged
+* Check on precense of robots.txt with only Allow statements (of DisAllow: /)
+* Check on HTTP headers, certain headers should be present
+* Check on absence of version info in HTTP headers check
+* Check on absence of no product information and/of version information in the HTML Error page
 * Check on redirects from HTTP to HTTPS
-* Presence of .well-known/security.txt see [https://securitytxt.org/](https://securitytxt.org/)
+* Check on presence of .well-known/security.txt see [https://securitytxt.org/](https://securitytxt.org/)
 * Check on Cerificate validity lifetime left
 * Check on HSTS lifetime (if present)
 
-Information is stored in a Sqlite database and sql2html.py creates an nice index.html from that database.  
+Information is stored in a Sqlite database  
+sql2html.py creates a nice overview from that database.  
+sql2excel.py creates an excel file from that database.  
+  
 All checks have debug logging which is stored in the output directory in a per website name, 
 this can be usefull to review the status at a certain point in time.
 
@@ -24,6 +27,7 @@ See requirements.txt and as usual perform the following command to satisfy those
 > pip3 install -r requirements.txt
  
 (or use your OS package management tools)
+Default is to use Qualys ssltest (online) to determine the TLS Score, ranging from F to A++. However it is also possible to use [ssltest.sh](https://github.com/drwetter/testssl.sh) ( using the -t switch), but it needs to be installed on the system and if it's not in /usr/local/bin you need to alter the location in scirtscan.py 
 
 ## Input file
 The input file is required it takes the form of a list of website names, e.g. :
@@ -46,6 +50,9 @@ if all goes well this will create a directory with the name of todays date in th
 
 And that will create an index.html in that directory. Default sql2html.py will read the directory with today's date and write the index.html there If you want to proces another directory, you can specify that with the -p (path) option, for instance:
 > ./sql2html.py -d -p 20221231
+
+`test \ 
+aa`
 
 If you want to open that index file to view it in your browser and you're on a mac, type:
 > open yyyymmdd/index.html (and yes, replace yyyymmdd with the current date)

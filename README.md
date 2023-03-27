@@ -23,46 +23,64 @@ All checks have debug logging which is stored in the output directory in a per w
 this can be usefull to review the status at a certain point in time.
 
 ## Requirements
-See requirements.txt and as usual perform the following command to satisfy those:
-> pip3 install -r requirements.txt
+See requirements.txt and as usual perform the following command to satisfy those:  
+`pip3 install -r requirements.txt`
  
 (or use your OS package management tools)
 Default is to use Qualys ssltest (online) to determine the TLS Score, ranging from F to A++. However it is also possible to use [ssltest.sh](https://github.com/drwetter/testssl.sh) ( using the -t switch), but it needs to be installed on the system and if it's not in /usr/local/bin you need to alter the location in scirtscan.py 
 
 ## Input file
-The input file is required it takes the form of a list of website names, e.g. :
-> www.some-boring-website.com  
-> www.another-dull-website.com  
-> www.you-get-the-gist.com  
+The input file is required it takes the form of a list of website names, e.g. :  
+
+```
+www.some-boring-website.com
+www.another-dull-website.com
+www.you-get-the-gist.com
+``` 
 
 ## Output
 Output is generated in a newly created directory. The directory name is based on the date (YYYYMMDD). The output directory contains the sqlite file websites.db and the per website results log. 
 
 ## Usage
-Run from the directory where the files are located:
-> ./scirtscan.py -d websites.txt
+Run from the directory where the files are located:  
+`./scirtscan.py -d websites.txt`
 
-The qualys ssltest can take up some time. The default in the script is to specify usecache, so the second time you run the script it will just get the results from the cache. Optional you can specify -xq to skip the Qualys check, for instance:
-> ./scirtscan.py -d -xq websites.txt
+The qualys ssltest can take up some time. The default in the script is to specify usecache, so the second time you run the script it will just get the results from the cache. Optional you can specify -xq to skip the Qualys check, for instance:  
+`./scirtscan.py -d -xq websites.txt`
 
-if all goes well this will create a directory with the name of todays date in the format YYYYMMDD. The sqlite database with all results and the per website debug log files will be stored in that directory. Next run:
-> ./sql2html.py -d
+all commandline switches as of v1.5b:  
 
-And that will create an index.html in that directory. Default sql2html.py will read the directory with today's date and write the index.html there If you want to proces another directory, you can specify that with the -p (path) option, for instance:
-> ./sql2html.py -d -p 20221231
+```
+usage: scirtscan.py [-h] [-d] [-a] [-v] [-nq] [-oq] [-t] [-nc] [-ndf] [FILENAME]
 
-`test \ 
-aa  
-bb<br />
-cc\
-dd`
-`ee`
+check websites
 
-If you want to open that index file to view it in your browser and you're on a mac, type:
-> open yyyymmdd/index.html (and yes, replace yyyymmdd with the current date)
+positional arguments:
+  FILENAME              filename with list of websites
 
-for linux use:
-> xdg-open yyyymmdd/index.html
+options:
+  -h, --help            show this help message and exit
+  -d, --debug           print debug messages to stderr
+  -a, --anon            don't modify user-agent to show who is scanning
+  -v, --version         show version info and exit
+  -nq, --no_qualys      exclude qualys ssltest
+  -oq, --only_qualys    only do qualys ssltest (skip other tests)
+  -t, --testssl         use locally installed testssl.sh instead of qualys
+  -nc, --no_cache       always request fresh tests from qualys
+  -ndf, --no_debugfile  Don't save debug output to debug.log in the YYYYMMDD directory
+```
+
+if all goes well scirtscan.py will create a directory with the name of todays date in the format YYYYMMDD. The sqlite database with all results and the per website debug log files will be stored in that directory. Next run:  
+`./sql2html.py -d`
+
+And that will create an index.html in that directory. Default sql2html.py will read the directory with today's date and write the index.html there If you want to proces another directory, you can specify that with the -p (path) option, for instance:  
+`./sql2html.py -d -p 20221231`
+
+If you want to open that index file to view it in your browser and you're on a mac, type:  
+`open yyyymmdd/index.html (and yes, replace yyyymmdd with the current date)`
+
+for linux use:  
+`xdg-open yyyymmdd/index.html`
 
 If you want to put the files on a webserver, copy the yyyymmdd directory(s) to the webserver root. The file styles.css is used by sql2html.py to generate the index.html, after that it's not used anymore.
 

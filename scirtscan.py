@@ -16,7 +16,7 @@ from subprocess import Popen
 import dns.resolver
 from pprint import pformat
 
-version = "v1.5b, 20230326"
+version = "v1.5b, 20230327"
 
 
 current_time = datetime.datetime.now()
@@ -183,7 +183,8 @@ def check_dns(website):
                 debug_print(answer.address)
                 outfile.write(answer.address + "\n")
         except dns.resolver.NoAnswer:
-                debug_print ("no IPv6 addresses")  
+                debug_print ("no IPv6 addresses")
+                outfile.write("no IPv6 addresses\n")
 
         try:
             cname_answers = dns.resolver.resolve(website, 'CNAME')      # check cname's (aliases)
@@ -192,7 +193,7 @@ def check_dns(website):
                 outfile.write("cname: " + answer.target.to_text() + "\n")
         except dns.resolver.NoAnswer:
                 debug_print ("no CNAMEs")
-                outfile.write("no CNAMEs")
+                outfile.write("no CNAMEs\n")
 
         try:
             cname_answers = dns.resolver.resolve(website, 'MX')         # check mx (mail exchange) records
@@ -201,7 +202,7 @@ def check_dns(website):
                 outfile.write("mx: " + answer.exchange.to_text() + "\n")
         except dns.resolver.NoAnswer:
             debug_print("no MX records")
-            outfile.write("no MX records")
+            outfile.write("no MX records\n")
 
         try:
             txt_answers = dns.resolver.resolve(website, 'TXT')          # check for TXT (text) records
@@ -211,7 +212,7 @@ def check_dns(website):
                     outfile.write("TXT: " + txt_string.decode('utf-8') + "\n")
         except dns.resolver.NoAnswer:
             debug_print("no TXT records")
-            outfile.write("no TXT records")
+            outfile.write("no TXT records\n")
 
     except dns.resolver.NXDOMAIN:
         debug_print("NXDOMAIN; Website {website} not found")
@@ -655,15 +656,18 @@ def check_http_redirected_to_https(website: str) -> bool:
     try:
         http_url = f'http://{website}'
         response = requests.get(http_url, allow_redirects=True, timeout=10, headers=headers)
+        headers_formatted = pformat(dict(response.headers))
 
         if response.history:
             final_url = response.url
             if final_url.startswith('https://'):
                 check_redirect = 1
                 outfile.write(f"{website} redirects HTTP to HTTPS\n")
+                outfile.write(f"{headers_formatted}\n")
             else:
                 redirect_check = 0
                 outfile.write(f"ERR {website} does not redirect HTTP to HTTPS\n")
+                outfile.write(f"{headers_formatted}\n")
 
             try:
                 c.execute("UPDATE website_checks SET redirect_check = ? WHERE websites = ?", (check_redirect, website))

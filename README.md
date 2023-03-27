@@ -52,7 +52,11 @@ And that will create an index.html in that directory. Default sql2html.py will r
 > ./sql2html.py -d -p 20221231
 
 `test \ 
-aa`
+aa  
+bb<br />
+cc\
+dd`
+`ee`
 
 If you want to open that index file to view it in your browser and you're on a mac, type:
 > open yyyymmdd/index.html (and yes, replace yyyymmdd with the current date)

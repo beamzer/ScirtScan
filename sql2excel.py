@@ -2,36 +2,28 @@
 import sqlite3
 import argparse
 import os
+import sys
 #import datetime
 from datetime import date
 import openpyxl
 from openpyxl.styles import Font, PatternFill
 
+version = "v1.5b, 20230327"
+
 today = date.today()
 dir = today.strftime("%Y%m%d")
 
 parser = argparse.ArgumentParser(description='creates an index.html page from the sqlite database websites.db')
-
-parser.add_argument(
-    '-d','--debug',
-    action='store_true',
-    help='print debug messages to stderr'
-    )
-
-parser.add_argument(
-    '-p', '--path', 
-    type=str, 
-    help=f'The directory path, if not given will assume the directory with todays date: {dir}'
-    )
-
-parser.add_argument(
-    '-m', '--mail', 
-    type=str,
-    help='e-mail address to send the Excel file to'
-    )
+parser.add_argument('-d','--debug', action='store_true', help='print debug messages to stderr')
+parser.add_argument('-p', '--path', type=str, help=f'The directory path, if not given will assume the directory with todays date: {dir}')
+parser.add_argument('-m', '--mail', type=str, help='e-mail address to send the Excel file to')
+parser.add_argument('-v','--version', action='store_true', help='show version info and exit')
 
 args = parser.parse_args()
 debug = args.debug
+
+if args.version:
+    sys.exit(f"version: {version}")
 
 # If the path argument is provided, use it as the directory path
 if args.path:
@@ -53,13 +45,44 @@ try:
     conn = sqlite3.connect(os.path.join(directory_path, 'websites.db'))
     debug and print(f"Connected to database {os.path.join(directory_path, 'websites.db')}")
 except sqlite3.Error as e:
-    print(f"Error connecting to database: {e}")
+    sys.exit(f"Error connecting to database: {e}")
 
+# headers as a list, in the order they should appear in the excel sheet
+table_headers = ['website', 
+                 'grade', 
+                 'grade check',
+                 'HTTPS redirect',
+                 'certificate validity',
+                 'HSTS',
+                 'headers', 
+                 'security.txt', 
+                 'robots.txt', 
+                 'version', 
+                 'error', 
+                 'check date']
 
-# Retrieve data from the database
+# Query the database website_checks and store the results in a dataframe
+sql_query = ("SELECT websites, "
+             "grade, "
+             "grade_check, "
+             "redirect_check, "
+             "cert_validity, "
+             "hsts, "
+             "headers_check, "
+             "security_txt, "
+             "robots_check, "             
+             "version_check, "
+             "error_check, "
+             "check_date "
+             "FROM website_checks")
+
 cursor = conn.cursor()
-cursor.execute('SELECT * FROM website_checks')
-rows = cursor.fetchall()
+try:
+    cursor.execute(sql_query)
+    rows = cursor.fetchall()
+except sqlite3.Error as error:
+    sys.exit("Failed to fetch data from websites.db", error)
+
 
 # Create a new workbook and worksheet
 workbook = openpyxl.Workbook()
@@ -70,11 +93,6 @@ header_style = Font(bold=True)
 value_ok_style = PatternFill(start_color='00FF89', end_color='00FF89', fill_type='solid')
 value_notok_style = PatternFill(start_color='FF0000', end_color='FF0000', fill_type='solid')
 
-# Write the header row
-# table_headers = ['websites', 'robots_check', 'headers_check', 'version_check', 'error_check', 'grade', 'grade_check', 'check_date', 'security_txt']
-# switching the last two colums:
-table_headers = ['websites', 'robots_check', 'headers_check', 'version_check', 'error_check', 'grade', 'grade_check', 'security_txt', 'check_date']
-
 for col, header in enumerate(table_headers):
     worksheet.cell(row=1, column=col+1, value=header).font = header_style
     worksheet.column_dimensions[openpyxl.utils.get_column_letter(col+1)].width = 15
@@ -83,14 +101,9 @@ for col, header in enumerate(table_headers):
 for row, data in enumerate(rows):
     for col, value in enumerate(data):
         debug and print(f"row = {row}, col = {col}, value = {value}")
-        if col == 8:            # because the last two colums are switched
-             col = 7
-        elif col == 7: 
-             col = 8
            
         cell = worksheet.cell(row=row+2, column=col+1, value=value)
-        # if col in [1, 2, 3, 4, 6, 8]:
-        if col in [1, 2, 3, 4, 6, 7]: # adjust for the switched columns ( check_date is a string )
+        if col in [2,3,6,7,8,9,10]:
             if value == 1:
                 cell.fill = value_ok_style
                 cell.value = 'OK'
@@ -104,7 +117,7 @@ try:
     workbook.save(excelfile)
     debug and print(f"saving to: {excelfile}")
 except OSError as e:
-    print(f"Error saving excel file: {e}")
+    sys.exit(f"Error saving excel file: {e}")
 
 # If the -m switch was specified, e-mail the Excel file to the specified address
 # N.B. this has to be modified to your specific situation before it will actually send an e-mail

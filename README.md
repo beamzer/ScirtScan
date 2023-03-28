@@ -84,7 +84,7 @@ for linux use:
 
 If you want to put the files on a webserver, copy the yyyymmdd directory(s) to the webserver root. The file styles.css is used by sql2html.py to generate the index.html, after that it's not used anymore.
 
-The webpage will look something like this (OLD, new screenshot is emminent)
+The webpage will look something like this:
 ![](https://raw.githubusercontent.com/beamzer/ScirtScan/main/scirtscan-table.png)
 
 ## Structure

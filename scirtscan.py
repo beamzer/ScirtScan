@@ -16,7 +16,7 @@ from subprocess import Popen
 import dns.resolver
 from pprint import pformat
 
-version = "v1.5b, 20230327"
+version = "v2.0, 20230328"
 
 current_time = datetime.datetime.now()
 time_string = current_time.strftime("%Y-%m-%d %H:%M:%S")    # Format the time as a string
@@ -148,19 +148,39 @@ c = conn.cursor()
 
 c.execute('''CREATE TABLE IF NOT EXISTS website_checks
             (websites TEXT PRIMARY KEY, 
-                robots_check INT,
-                headers_check INT,
-                version_check INT,
-                error_check INT,
                 grade TEXT,
                 grade_check INT,
-                check_date TEXT,
-                security_txt INT,
                 redirect_check INT,
                 cert_validity INT,
-                hsts INT
+                hsts INT,                
+                headers_check INT,
+                security_txt INT,
+                robots_check INT,
+                version_check INT,
+                error_check INT,
+                check_date TEXT                
             )''')
 
+# Create the meta table and store the structure
+c.execute("CREATE TABLE IF NOT EXISTS meta (structure TEXT, version TEXT)")
+
+# Insert the table structure into the meta table, so sql2html.py and sql2excel.py can use this
+table_structure = """
+(   websites TEXT, grade TEXT, grade_check INT, redirect_check INT, cert_validity INT, hsts INT,
+    headers_check INT, security_txt INT, robots_check INT, version_check INT, error_check INT, check_date TEXT )
+"""
+
+# # Check if the structure is already in the meta table
+# c.execute("SELECT table_structure FROM meta")
+# result = c.fetchone()
+
+# # If the meta table is empty, insert the structure
+# if not result:
+try:
+    c.execute("INSERT INTO meta (structure) VALUES (?)", (table_structure,))
+    c.execute("INSERT INTO meta (version) VALUES (?)", (version,))
+except sqlite3.Error as error:
+    print("Failed to insert structure and version into table meta", error)
 
 ###########################################################################################################
 # if the website name doesn't resolve we can skip the other checks

@@ -4,9 +4,10 @@ import argparse
 import os
 import sys
 import datetime
+import re
 from datetime import date
 
-version = "v1.5b, 20230326"
+version = "v2.0, 20230328"
 
 html_table = ""
 
@@ -41,10 +42,12 @@ if not os.path.exists(directory_path):
 
 # Connect to the SQLite database in the directory
 try:
-    conn = sqlite3.connect(os.path.join(directory_path, 'websites.db'))
-    debug and print(f"Connected to database {os.path.join(directory_path, 'websites.db')}.")
+    database = os.path.join(directory_path, 'websites.db')
+    conn = sqlite3.connect(database)
+    debug and print(f"Connected to database {database}.")
+    c = conn.cursor()
 except sqlite3.Error as e:
-    print(f"Error connecting to database: {e}")
+    sys.exit(f"Error connecting to database {database}: {e}")
 
 # Define the HTML table headers as a list, in the order they should appear on the webpage
 table_headers = ['website', 
@@ -69,42 +72,46 @@ for header in table_headers:
         count += 1
 header_row += '</tr>'
 
-# Query the database website_checks and store the results in a dataframe
-sql_query = ("SELECT websites, "
-             "robots_check, "
-             "headers_check, "
-             "version_check, "
-             "error_check, "
-             "grade, "
-             "grade_check, "
-             "check_date, "
-             "security_txt, "
-             "cert_validity, "
-             "redirect_check, "
-             "hsts "
-             "FROM website_checks")
+# Query the table structure from the meta table
+c.execute("SELECT structure FROM meta")
+result = c.fetchone()
+
+if result:
+    table_structure = result[0]
+    debug and print(f"Table structure: {table_structure}")
+
+    # Extract column names from the table structure
+    column_pattern = re.compile(r'(\w+)\s+[\w\(\)]+(,)?')
+    columns = [match.group(1) for match in column_pattern.finditer(table_structure) if match.group(1) != "IF"]
+
+    # Build the SQL query
+    sql_query = "SELECT {} FROM website_checks".format(", ".join(columns))
+    debug and print(f"sql_query = {sql_query}")
+else:
+    sys.exit(f"unable to read database structure from {database}")
 
 cs = conn.cursor()
 try:
     cs.execute(sql_query)
     result = cs.fetchall()
 except sqlite3.Error as error:
-    print("Failed to fetch data from websites.db", error)
+    sys.exit(f"Failed to fetch data from {database}", error)
 
 for row in result:
     debug and print(row)
     website = row[0]
-    robo_check = row[1]
-    head_check = row[2]
-    vers_check = row[3]
-    err_check  = row[4]
-    grade = row[5]
-    grad_check = row[6]
-    date_check = row[7]
-    security_txt = row[8]
-    cert_valid = row[9]
-    redirect_check = row[10]
-    hsts = row[11]
+    grade = row[1]
+    grad_check = row[2]
+    redirect_check = row[3]
+    cert_valid = row[4]
+    hsts = row[5]
+    head_check = row[6]
+    security_txt = row[7]
+    robo_check = row[8]
+    vers_check = row[9]
+    err_check  = row[10]
+    date_check = row[11]
+        
     debug and print(date_check, website, robo_check, head_check, vers_check, err_check, grad_check, grade, security_txt, cert_valid, redirect_check, hsts)
  
     debugfile = f'{website}.txt'

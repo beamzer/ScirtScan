@@ -3,12 +3,12 @@ import sqlite3
 import argparse
 import os
 import sys
-#import datetime
+import re
 from datetime import date
 import openpyxl
 from openpyxl.styles import Font, PatternFill
 
-version = "v1.5b, 20230327"
+version = "v2.0, 20230328"
 
 today = date.today()
 dir = today.strftime("%Y%m%d")
@@ -42,10 +42,12 @@ if not os.path.exists(directory_path):
 
 # Connect to the SQLite database in the directory
 try:
-    conn = sqlite3.connect(os.path.join(directory_path, 'websites.db'))
-    debug and print(f"Connected to database {os.path.join(directory_path, 'websites.db')}")
+    database = os.path.join(directory_path, 'websites.db')
+    conn = sqlite3.connect(database)
+    debug and print(f"Connected to database {database}")
+    c = conn.cursor()
 except sqlite3.Error as e:
-    sys.exit(f"Error connecting to database: {e}")
+    sys.exit(f"Error connecting to database {database}: {e}")
 
 # headers as a list, in the order they should appear in the excel sheet
 table_headers = ['website', 
@@ -61,27 +63,30 @@ table_headers = ['website',
                  'error', 
                  'check date']
 
-# Query the database website_checks and store the results in a dataframe
-sql_query = ("SELECT websites, "
-             "grade, "
-             "grade_check, "
-             "redirect_check, "
-             "cert_validity, "
-             "hsts, "
-             "headers_check, "
-             "security_txt, "
-             "robots_check, "             
-             "version_check, "
-             "error_check, "
-             "check_date "
-             "FROM website_checks")
+# Query the table structure from the meta table
+c.execute("SELECT structure FROM meta")
+result = c.fetchone()
 
-cursor = conn.cursor()
+if result:
+    table_structure = result[0]
+    debug and print(f"Table structure: {table_structure}")
+
+    # Extract column names from the table structure
+    column_pattern = re.compile(r'(\w+)\s+[\w\(\)]+(,)?')
+    columns = [match.group(1) for match in column_pattern.finditer(table_structure) if match.group(1) != "IF"]
+
+    # Build the SQL query
+    sql_query = "SELECT {} FROM website_checks".format(", ".join(columns))
+    debug and print(f"sql_query = {sql_query}")
+else:
+    sys.exit(f"unable to read database structure from {database}")
+
+cs = conn.cursor()
 try:
-    cursor.execute(sql_query)
-    rows = cursor.fetchall()
+    cs.execute(sql_query)
+    rows = cs.fetchall()
 except sqlite3.Error as error:
-    sys.exit("Failed to fetch data from websites.db", error)
+    sys.exit(f"Failed to fetch data from {database}", error)
 
 
 # Create a new workbook and worksheet

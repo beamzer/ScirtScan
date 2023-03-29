@@ -155,6 +155,8 @@ for row in result:
         html_table += f'<td class="red">&#10006;</td>'
     elif hsts >= 365:
         html_table += f'<td class="green">{hsts}</td>'
+    elif hsts >= 182:
+        html_table += f'<td class="orange">{hsts}</td>'
     else:
         html_table += f'<td class="red">{hsts}</td>'
 

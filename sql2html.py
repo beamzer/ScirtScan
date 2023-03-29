@@ -178,7 +178,8 @@ for row in result:
     if robo_check == 1:
         html_table += f'<td class="green">{robo_url}&#x2705;</a></td>'
     elif robo_check == 0:
-        html_table += f'<td class="red">{robo_url}&#10006;</a></td>'
+        # html_table += f'<td class="red">{robo_url}&#10006;</a></td>'
+        html_table += f'<td class="darkgreen">{robo_url}&#10006;</a></td>'
     else:
         html_table += f'<td class="orange">{robo_url}<b>&quest;</b></a></td>'
 

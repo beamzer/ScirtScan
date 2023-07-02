@@ -1,3 +1,4 @@
+# demo websites for scirtscan.py
 www.google.com
 www.microsoft.com
 www.apple.com

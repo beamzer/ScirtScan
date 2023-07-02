@@ -16,7 +16,7 @@ from subprocess import Popen
 import dns.resolver
 from pprint import pformat
 
-version = "v2.1b, 20230701"
+version = "v2.1c, 20230702"
 
 current_time = datetime.datetime.now()
 time_string = current_time.strftime("%Y-%m-%d %H:%M:%S")    # Format the time as a string
@@ -168,7 +168,15 @@ c = conn.cursor()
 # security_txt INT,           # is .well-known/security.txt present?
 # redirect_check INT,         # are HTTP requests redirected to HTTPS ?
 # cert_validity INT           # how many days before the certificate expires
+# https_reachable             # whether the website is reachable through HTTPS (on port443)
+# remnants                    # whether the are remnants of CMS installation files on the website
+# debug                       # if the HTTP headers returned contain the word debug (because you might want to investigate)
 
+####=> for all INT values, 1 = Good, meaning the check did find that the website was compliant with the security check,
+#      or there was no information found that the website was incompliant with the security check.
+#      0 = Bad, empty = ? (don't know)
+
+# if you want to add your own check/function, add the table name before check_date, and also add it to table_structure_below
 c.execute('''CREATE TABLE IF NOT EXISTS website_checks
             (websites TEXT PRIMARY KEY, 
                 https_reachable INT,
@@ -183,6 +191,7 @@ c.execute('''CREATE TABLE IF NOT EXISTS website_checks
                 version_check INT,
                 error_check INT,
                 remnants INT,
+                debug INT,
                 check_date TEXT                
             )''')
 
@@ -192,7 +201,8 @@ c.execute("CREATE TABLE IF NOT EXISTS meta (structure TEXT, version TEXT)")
 # Insert the table structure into the meta table, so sql2html.py and sql2excel.py can use this
 table_structure = """
 (   websites TEXT, https_reachable INT, grade TEXT, grade_check INT, redirect_check INT, cert_validity INT, hsts INT,
-    headers_check INT, security_txt INT, robots_check INT, version_check INT, error_check INT, remnants INT, check_date TEXT )
+    headers_check INT, security_txt INT, robots_check INT, version_check INT, error_check INT, remnants INT, debug INT, 
+    check_date TEXT )
 """
 
 # # Check if the structure is already in the meta table
@@ -731,6 +741,8 @@ def check_ssl_certificate_validity(website):
         # debug_print(f"time of check (utc)   : {current_time}")
         # debug_print(f"certificate  days left: {days_left}")
 
+        outfile.write(f"certificate issuer    : {cert_ca}\n")
+
         try:
             c.execute("UPDATE website_checks SET cert_validity = ? WHERE websites = ?", (days_left, website))
             conn.commit()
@@ -844,6 +856,45 @@ def check_remants(webserver):
         return True
 
 
+###########################################################################################################
+# check if the word "debug" is present in HTTP header info,
+# for instance laravel has a HTTP header "phpdebugbar-id:" when debug is enabled
+#
+def check_debug_in_headers(website):
+    debug_print(f"=== check_debug_in_headers {website}")
+    outfile.write("\n===========Check for the word \"debug\" in HTTP header info\n")
+
+    for prefix in ['http://', 'https://']:
+        try:
+            response = requests.get(prefix + website)
+            headers = response.headers
+            for key, value in headers.items():
+                if 'debug' in key.lower() or 'debug' in value.lower():
+                    debug_print(f"'debug' found in {key} header for {prefix}{website}")
+                    outfile.write(f"'debug' found in {key} header for {prefix}{website}")
+                    try:
+                        c.execute("UPDATE website_checks SET debug = ? WHERE websites = ?", (0, website))
+                        conn.commit()
+                        debug_print(f"record inserted into website_checks for debug: 0")
+                    except sqlite3.Error as error:
+                        print("Failed to insert data into table", error)
+                    return False
+
+        except requests.exceptions.RequestException as e:
+            debug_print(f"Error while connecting to {prefix}{website}: {str(e)}")
+
+    debug_print("debug not found in HTTP headers")
+    outfile.write("debug not found in HTTP headers")
+    try:
+        c.execute("UPDATE website_checks SET debug = ? WHERE websites = ?", (1, website))
+        conn.commit()
+        debug_print(f"record inserted into website_checks for debug: 1")
+    except sqlite3.Error as error:
+        print("Failed to insert data into table", error)
+
+    return True
+
+
 ############################################# Main code block #############################################
 #
 for website in inlines:
@@ -892,6 +943,7 @@ for website in inlines:
             check_ssl_certificate_validity(website)
             check_http_redirected_to_https(website)
             check_remants(website)
+            check_debug_in_headers(website)
 
             if testssl:
                 check_testssl(website)

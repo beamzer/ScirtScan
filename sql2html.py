@@ -7,7 +7,7 @@ import datetime
 import re
 from datetime import date
 
-version = "v2.1b, 20230701"
+version = "v2.1c, 20230702"
 
 html_table = ""
 
@@ -55,7 +55,7 @@ table_headers = ['website',
                  'grade', 
                  'grade<br>check',
                  'HTTPS<br>redirect',
-                 'certificate<br>validity',
+                 'cert<br>validity',
                  'HSTS<br>(days)',
                  'headers', 
                  'security<br>.txt', 
@@ -63,6 +63,7 @@ table_headers = ['website',
                  'version', 
                  'error', 
                  'remnants',
+                 'debug',
                  'check date']
 
 # Using a loop to construct the header row
@@ -114,9 +115,10 @@ for row in result:
     vers_check = row[10]
     err_check  = row[11]
     remnants = row[12]
-    date_check = row[13]
+    debug = row[13]
+    date_check = row[14]
         
-    debug and print(date_check, website, https_check, robo_check, head_check, vers_check, err_check, grad_check, grade, security_txt, cert_valid, redirect_check, hsts)
+    debug and print(date_check, website, https_check, grad_check, grade, redirect_check, cert_valid, hsts, head_check, security_txt, robo_check, vers_check, err_check, remnants, debug)
  
     debugfile = f'{website}.txt'
     html_table += f'<tr><td><a class="check" href=https://{website}>{website}</a></td>'
@@ -210,6 +212,13 @@ for row in result:
     if remnants == 1:
         html_table += f'<td class="green">&#x2705;</td>'
     elif remnants == 0:
+        html_table += f'<td class="red">&#10006;</td>'
+    else:
+        html_table += f'<td class="orange"><b>&quest;</b></td>'
+
+    if debug == 1:
+        html_table += f'<td class="green">&#x2705;</td>'
+    elif debug == 0:
         html_table += f'<td class="red">&#10006;</td>'
     else:
         html_table += f'<td class="orange"><b>&quest;</b></td>'

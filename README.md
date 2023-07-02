@@ -15,6 +15,7 @@ This tool takes a list of websites and performs the following checks:
 * Check on Cerificate validity lifetime left
 * Check on HSTS lifetime (if present)
 * Check for remnants of installation files (Readme.md, Changelog.txt, etc)
+* Check for the word "debug" in the returned HTTP headers
 * Log all DNS info about the site
 
 <br />
@@ -53,7 +54,7 @@ Run from the directory where the files are located:
 The qualys ssltest can take up some time. The default in the script is to specify usecache, so the second time you run the script it will just get the results from the cache. Optional you can specify -xq to skip the Qualys check, for instance:  
 `./scirtscan.py -d -xq websites.txt`
 
-all commandline switches as of v2.1b:  
+all commandline switches as of v2.1c:  
 
 ```
 usage: scirtscan.py [-h] [-d] [-a] [-v] [-nq] [-oq] [-t] [-ot] [-nc] [-ndf] [FILENAME]
@@ -94,7 +95,7 @@ The webpage will look something like this:
 ![](https://raw.githubusercontent.com/beamzer/ScirtScan/main/scirtscan-table.png)
 
 ## Structure
-The main python script (scirtscan.py) works with functions, you can easily comment out functions to test a single one, or add a new function for new checks. I will add an commandline option for this soon. 
+The main python script (scirtscan.py) works with functions, you can easily comment out functions to test a single one, or add a new function for new checks.  
 
 ## Features realised & Upcoming features
 * see [changelog.txt](https://github.com/beamzer/ScirtScan/blob/main/changelog.txt)

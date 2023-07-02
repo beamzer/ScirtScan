@@ -8,7 +8,7 @@ from datetime import date
 import openpyxl
 from openpyxl.styles import Font, PatternFill
 
-version = "v2.1b, 20230701"
+version = "v2.1c, 20230702"
 
 today = date.today()
 dir = today.strftime("%Y%m%d")
@@ -63,6 +63,7 @@ table_headers = ['website',
                  'version', 
                  'error', 
                  'remnants',
+                 'debug',
                  'check date']
 
 # Query the table structure from the meta table
@@ -115,7 +116,8 @@ for row, data in enumerate(rows):
         # col 2 = grade
         # col 5 = cert. validity (days)
         # col 6 = hsts duration
-        if col in [1,3,4,7,8,9,10,11,12]:
+        # col 14 = check_date
+        if col in [1,3,4,7,8,9,10,11,12,13]:
             if value == 1:
                 cell.fill = value_ok_style
                 cell.value = 'OK'
@@ -127,7 +129,7 @@ for row, data in enumerate(rows):
 excelfile = os.path.join(directory_path, 'website_checks.xlsx')
 try:
     workbook.save(excelfile)
-    debug and print(f"saving to: {excelfile}")
+    print(f"saving to: {excelfile}")
 except OSError as e:
     sys.exit(f"Error saving excel file: {e}")
 

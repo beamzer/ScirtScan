@@ -18,7 +18,11 @@ v2.5, upcoming
 	(this was on the requirement list from day one, just need to find a
 	reliable method to do this)
 
-v2.1b, 20230702
+v2.1c, 20230702
+	* added a check to find the word "debug" in the HTTP headers to find
+	websites with debug mode still enabled (for instance laravel)
+	
+v2.1b, 20230701
 	* check for CMS installation files left behind which disclose CMS type
 	and version information (README.txt, CHANGELOG.txt, etc)
 	* added check to see if website is reachable via HTTPS, so it now

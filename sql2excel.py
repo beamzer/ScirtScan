@@ -8,7 +8,7 @@ from datetime import date
 import openpyxl
 from openpyxl.styles import Font, PatternFill
 
-version = "v2.0, 20230328"
+version = "v2.1b, 20230701"
 
 today = date.today()
 dir = today.strftime("%Y%m%d")
@@ -51,6 +51,7 @@ except sqlite3.Error as e:
 
 # headers as a list, in the order they should appear in the excel sheet
 table_headers = ['website', 
+                 'https',
                  'grade', 
                  'grade check',
                  'HTTPS redirect',
@@ -61,6 +62,7 @@ table_headers = ['website',
                  'robots.txt', 
                  'version', 
                  'error', 
+                 'remnants',
                  'check date']
 
 # Query the table structure from the meta table
@@ -108,7 +110,12 @@ for row, data in enumerate(rows):
         debug and print(f"row = {row}, col = {col}, value = {value}")
            
         cell = worksheet.cell(row=row+2, column=col+1, value=value)
-        if col in [2,3,6,7,8,9,10]:
+
+        # col 0 = website name
+        # col 2 = grade
+        # col 5 = cert. validity (days)
+        # col 6 = hsts duration
+        if col in [1,3,4,7,8,9,10,11,12]:
             if value == 1:
                 cell.fill = value_ok_style
                 cell.value = 'OK'

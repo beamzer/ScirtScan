@@ -1,9 +1,9 @@
 Changelog for ScirtScan
 
-v2.x, upcoming
+v3.x, under consideration
 	* config file to read specific values (e.g. CERT name in UserAgent)
 	and specify which checks should be done and which shouldn't
-	* maybe facilitate the upload of a new list op websites to scan
+	* maybe facilitate the upload of a new list of websites to scan
 	through the HTML page, so this can be used without shell access?
 	* will look into more output tools, e.g. a pie-chart to show how your
 	compliance is on a certain topic (e.g. SSLtest scores) and possibly a
@@ -13,9 +13,24 @@ v2.x, upcoming
 	* will look into an option to specify primary websites (e.g.  www.company.tld ) 
 	and have those shown first in the dashboard webpage
 
+v2.5, upcoming
+	* finding open directories in the website under test
+	(this was on the requirement list from day one, just need to find a
+	reliable method to do this)
+
+v2.1b, 20230702
+	* check for CMS installation files left behind which disclose CMS type
+	and version information (README.txt, CHANGELOG.txt, etc)
+	* added check to see if website is reachable via HTTPS, so it now
+	fails gracefully is there is a DNS entry and no website and shows that
+	info in the dashboard etc.
+	* added sql2csv.py to quickly dump the database to semicolon separated
+	values
+
 v2.0, 20230328
 	* database format stored in sqlite database itself, so sql2html
-	and sql2excel will allways work regardless of what's in the database.
+	and sql2excel will read the structure from the database instead of
+	having this info hardcoded in the script.
 
 v1.5b, 20230327
 	* HTST info is now in days so it's human readable

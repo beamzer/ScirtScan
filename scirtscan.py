@@ -16,7 +16,7 @@ from subprocess import Popen
 import dns.resolver
 from pprint import pformat
 
-version = "v2.0, 20230328"
+version = "v2.1b, 20230701"
 
 current_time = datetime.datetime.now()
 time_string = current_time.strftime("%Y-%m-%d %H:%M:%S")    # Format the time as a string
@@ -38,6 +38,7 @@ parser.add_argument('-v','--version', action='store_true', help='show version in
 parser.add_argument('-nq','--no_qualys', action='store_true', help='exclude qualys ssltest')
 parser.add_argument('-oq','--only_qualys', action='store_true', help='only do qualys ssltest (skip other tests)')
 parser.add_argument('-t','--testssl', action='store_true', help='use locally installed testssl.sh instead of qualys')
+parser.add_argument('-ot','--only_testssl', action='store_true', help='only do testssl.sh checks on websites')
 parser.add_argument('-nc','--no_cache', action='store_true', help='always request fresh tests from qualys')
 parser.add_argument('-ndf', '--no_debugfile', action='store_true', help='Don\'t save debug output to debug.log in the YYYYMMDD directory')
 parser.add_argument('filename', metavar='FILENAME', type=str, nargs='?', const=None, help='filename with list of websites')
@@ -50,10 +51,11 @@ if args.filename is None:
     parser.print_help()
     sys.exit("ERROR: missing FILENAME")
 
+anon = args.anon
+
+
 debug = args.debug
 skip_debug_file = args.no_debugfile
-
-anon = args.anon
 
 # print debug messages to screen on -d
 debug_file_path = os.path.join(directory_path, "debug.log")
@@ -68,7 +70,21 @@ def debug_print(msg):
     if debug:
         print(msg)
 
-# comment this out if you want debug output of more runs on the same day added to one big file
+# support function to read contents of a file into variable
+def read_lines_from_file(filename):
+    try:
+        with open(filename, 'r') as file:
+            return [line.strip() for line in file]
+    except FileNotFoundError:
+        debug_print(f"Error: The file '{filename}' does not exist.")
+    except PermissionError:
+        debug_print(f"Error: You do not have permissions to read the file '{filename}'.")
+    except Exception as e:
+        debug_print(f"An unexpected error occurred: {e}")
+    return None
+
+
+# comment this out if you want the debug output of more runs on the same day added to one big file
 if not skip_debug_file:
     print(f"debug.log output written to {debug_file_path}")
     if os.path.exists(debug_file_path):
@@ -79,6 +95,9 @@ if not skip_debug_file:
 
 debug_print(f"ScirtScan version: {version}, check started on: {time_string}")
 
+
+
+
 xqualys = args.no_qualys
 if xqualys:
     debug_print("skipping qualys ssltest")
@@ -86,6 +105,10 @@ if xqualys:
 oqualys = args.only_qualys
 if oqualys:
     debug_print("only doing qualys ssltest")
+
+otestssl = args.only_testssl
+if otestssl:
+    debug_print("only doing testssl.sh ssltest")
 
 nocache = args.no_cache
 if nocache:
@@ -148,6 +171,7 @@ c = conn.cursor()
 
 c.execute('''CREATE TABLE IF NOT EXISTS website_checks
             (websites TEXT PRIMARY KEY, 
+                https_reachable INT,
                 grade TEXT,
                 grade_check INT,
                 redirect_check INT,
@@ -158,6 +182,7 @@ c.execute('''CREATE TABLE IF NOT EXISTS website_checks
                 robots_check INT,
                 version_check INT,
                 error_check INT,
+                remnants INT,
                 check_date TEXT                
             )''')
 
@@ -166,8 +191,8 @@ c.execute("CREATE TABLE IF NOT EXISTS meta (structure TEXT, version TEXT)")
 
 # Insert the table structure into the meta table, so sql2html.py and sql2excel.py can use this
 table_structure = """
-(   websites TEXT, grade TEXT, grade_check INT, redirect_check INT, cert_validity INT, hsts INT,
-    headers_check INT, security_txt INT, robots_check INT, version_check INT, error_check INT, check_date TEXT )
+(   websites TEXT, https_reachable INT, grade TEXT, grade_check INT, redirect_check INT, cert_validity INT, hsts INT,
+    headers_check INT, security_txt INT, robots_check INT, version_check INT, error_check INT, remnants INT, check_date TEXT )
 """
 
 # # Check if the structure is already in the meta table
@@ -244,8 +269,50 @@ def check_dns(website):
 
     return True
 
+###########################################################################################################
+# Check if the website is reachable with HTTPS
+def check_https_reachable(website):
+    debug_print(f"=== check_https_reachable {website}")
+    outfile.write(f'\n===========HTTPS reachable check\n')
+    try:
+        response = requests.get('https://' + website, timeout=5)
+        response.raise_for_status()  # If the response was successful, no Exception will be raised
+        debug_print(f"Response Code: {response.status_code}")
+        outfile.write(f"Response Code: {response.status_code}")
 
-import requests
+        try:
+            c.execute("UPDATE website_checks SET https_reachable = ? WHERE websites = ?", (1, website))
+            conn.commit()
+            debug_print(f"record inserted into website_checks: 1")
+        except sqlite3.Error as error:
+            print("Failed to insert data into table", error)
+
+        return True
+
+    except (requests.HTTPError, requests.ConnectionError, requests.Timeout, requests.TooManyRedirects) as e:
+        print("An error occurred. Please see details below.")
+        if isinstance(e, requests.HTTPError):
+            debug_print(f"HTTPError: Response Code {e.response.status_code}")
+            outfile.write(f"HTTPError: Response Code {e.response.status_code}")
+        elif isinstance(e, requests.ConnectionError):
+            debug_print("ConnectionError: Failed to establish a connection")
+            outfile.write("ConnectionError: Failed to establish a connection")
+        elif isinstance(e, requests.Timeout):
+            debug_print("Timeout: The request timed out")
+            outfile.write("Timeout: The request timed out")
+        elif isinstance(e, requests.TooManyRedirects):
+            debug_print("TooManyRedirects: The request exceeded the configured number of maximum redirections")
+            outfile.write("TooManyRedirects: The request exceeded the configured number of maximum redirections")
+
+        try:
+            c.execute("UPDATE website_checks SET https_reachable = ? WHERE websites = ?", (0, website))
+            conn.commit()
+            debug_print(f"record inserted into website_checks: 0")
+        except sqlite3.Error as error:
+            print("Failed to insert data into table", error)
+
+        return False
+
 
 ###########################################################################################################
 # Check that certain security headers are present in the HTTP header
@@ -474,8 +541,13 @@ def get_ssl_labs_grade(website: str, use_cache=True) -> str:
     outfile.write("\n===========SSL/TLS Configuration CHECK\n")
 
     base_url = "https://api.ssllabs.com/api/v3"
-    cache_param = 'on' if use_cache else 'off'
-    analyze_url = f"{base_url}/analyze?host={website}&publish=off&all=done&fromCache={cache_param}"
+    # cache_param = 'on' if use_cache else 'off'
+    # analyze_url = f"{base_url}/analyze?host={website}&publish=off&all=done&fromCache={cache_param}"
+    if use_cache:
+        # analyze_url = f"{base_url}/analyze?host={website}&publish=off&all=done&fromCache=on&maxAge=24"
+        analyze_url = f"{base_url}/analyze?host={website}&publish=off&fromCache=on&maxAge=24"
+    else:
+        analyze_url = f"{base_url}/analyze?host={website}&publish=off&fromCache=off"
     
     # Start the analysis
     try:
@@ -644,6 +716,10 @@ def check_ssl_certificate_validity(website):
 
         # Get the expiration date of the certificate
         cert_expiration = datetime.datetime.strptime(cert_info['notAfter'], '%b %d %H:%M:%S %Y %Z')
+
+        # Get the issuer information of the certificate [not used right now 20230701]
+        cert_ca = cert_info['issuer']
+
         current_time = datetime.datetime.utcnow()
         days_left = (cert_expiration - current_time).days
         if days_left > 29:
@@ -710,7 +786,63 @@ def check_http_redirected_to_https(website: str) -> bool:
         return False
 
     return True
+
+###########################################################################################################
+# check if installation files from a CMS are still present on the webserver
+# files are read from remnants.txt
+#
+def check_remants(webserver):
+    debug_print(f"=== check_remnants {website}")
+    outfile.write("\n===========Check for installation files left behind\n")
+
+    webserver_url = f"https://{webserver}"
+    found_files = []
+    filenames = read_lines_from_file('remnants.txt')
+    if filenames == None:
+        return False
+
+    file = "iu87h8hkhkgigy"     # replace this with your own random string
+    file_url = os.path.join(webserver_url, file)
+    response = requests.get(file_url)
+    if response.status_code == 200:
+        debug_print("This webserver returns a HTTP code of 200 on everything, skipping checks")
+        outfile.write("This webserver returns a HTTP code of 200 on everything, skipping checks")
+        return True               # webserver will pretend any file is present, so let's stop here
+
+    for file in filenames:
+        file_url = os.path.join(webserver_url, file)
+        try:
+            response = requests.get(file_url)
+            if response.status_code == 200:
+                found_files.append(file_url)
+        except requests.exceptions.RequestException as e:
+            debug_print(f"Error checking file '{file}': {e}")
     
+    if found_files:
+        debug_print(f"The following files gave a 200 response from {webserver}:")
+        outfile.write(f"The following files gave a 200 response from {webserver}:")
+        for file in found_files:
+            debug_print(f"- {file}")
+            outfile.write(f"- {file}")
+        try:
+            c.execute("UPDATE website_checks SET remnants = ? WHERE websites = ?", (0, website))
+            conn.commit()
+            debug_print(f"record inserted into website_checks for remnants: 0")
+        except sqlite3.Error as error:
+            print("Failed to insert data into table", error)
+        return False
+
+    else:
+        debug_print(f"No files from remnants.txt were found in the webserver root of {webserver_url}.")
+        outfile.write(f"No files from remnants.txt were found in the webserver root of {webserver_url}.")
+        try:
+            c.execute("UPDATE website_checks SET remnants = ? WHERE websites = ?", (1, website))
+            conn.commit()
+            debug_print(f"record inserted into website_checks for remnants: 1")
+        except sqlite3.Error as error:
+            print("Failed to insert data into table", error)
+        return True
+
 
 ############################################# Main code block #############################################
 #
@@ -739,7 +871,7 @@ for website in inlines:
 # when you are modifying a function or adding another one, comment out all other functions 
 # untill it works the way you want. Or add other commandline arguments to you can specify it at runtime
 
-    if check_dns(website):
+    if check_dns(website) and check_https_reachable(website):
         try:
             if oqualys:
                 if nocache:
@@ -747,7 +879,11 @@ for website in inlines:
                 else:
                     get_ssl_labs_grade(website)
                 continue
-            # header_check(website)
+
+            if otestssl:
+                check_testssl(website)
+                continue
+
             check_http_headers(website)
             check_versioninfo(url)
             error_check(url)
@@ -755,6 +891,8 @@ for website in inlines:
             check_security_file(website)
             check_ssl_certificate_validity(website)
             check_http_redirected_to_https(website)
+            check_remants(website)
+
             if testssl:
                 check_testssl(website)
             else:
@@ -765,6 +903,7 @@ for website in inlines:
                         get_ssl_labs_grade(website)
                 else:
                     outfile.write('\n===========SSL/TLS Configuration CHECK\nSkipped because use of -nq\n')
+
         except KeyboardInterrupt:
             sys.exit("as you wish, aborting...")
         except OSError as e:

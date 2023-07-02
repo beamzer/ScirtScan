@@ -14,12 +14,17 @@ This tool takes a list of websites and performs the following checks:
 * Check on presence of .well-known/security.txt see [https://securitytxt.org/](https://securitytxt.org/)
 * Check on Cerificate validity lifetime left
 * Check on HSTS lifetime (if present)
+* Check for remnants of installation files (Readme.md, Changelog.txt, etc)
+* Log all DNS info about the site
 
-Information is stored in a Sqlite database  
-sql2html.py creates a nice overview from that database.  
-sql2excel.py creates an excel file from that database.  
+<br />
+Information is stored in a Sqlite database and can be parsed with these tools: 
+
+* sql2html.py creates a nice overview from that database.  
+* sql2excel.py creates an excel file from that database.
+* sql2csv.py creates a dump of a sqlite db into semicolon separated output.  
   
-All checks have debug logging which is stored in the output directory in a per website name, 
+All checks have debug logging which is stored in the output directory in a per website name,<br />
 this can be usefull to review the status at a certain point in time.
 
 ## Requirements
@@ -48,10 +53,10 @@ Run from the directory where the files are located:
 The qualys ssltest can take up some time. The default in the script is to specify usecache, so the second time you run the script it will just get the results from the cache. Optional you can specify -xq to skip the Qualys check, for instance:  
 `./scirtscan.py -d -xq websites.txt`
 
-all commandline switches as of v1.5b:  
+all commandline switches as of v2.1b:  
 
 ```
-usage: scirtscan.py [-h] [-d] [-a] [-v] [-nq] [-oq] [-t] [-nc] [-ndf] [FILENAME]
+usage: scirtscan.py [-h] [-d] [-a] [-v] [-nq] [-oq] [-t] [-ot] [-nc] [-ndf] [FILENAME]
 
 check websites
 
@@ -66,6 +71,7 @@ options:
   -nq, --no_qualys      exclude qualys ssltest
   -oq, --only_qualys    only do qualys ssltest (skip other tests)
   -t, --testssl         use locally installed testssl.sh instead of qualys
+  -ot, --only_testssl   only do testssl.sh checks on websites
   -nc, --no_cache       always request fresh tests from qualys
   -ndf, --no_debugfile  Don't save debug output to debug.log in the YYYYMMDD directory
 ```
@@ -82,13 +88,16 @@ If you want to open that index file to view it in your browser and you're on a m
 for linux use:  
 `xdg-open yyyymmdd/index.html`
 
-If you want to put the files on a webserver, copy the yyyymmdd directory(s) to the webserver root. The file styles.css is used by sql2html.py to generate the index.html, after that it's not used anymore.
+If you want to put the files on a webserver, copy the yyyymmdd directory(s) to the webserver root. The file styles.css is used by sql2html.py to generate the index.html, once that's done it's not necessary anymore.
 
 The webpage will look something like this:
 ![](https://raw.githubusercontent.com/beamzer/ScirtScan/main/scirtscan-table.png)
 
 ## Structure
 The main python script (scirtscan.py) works with functions, you can easily comment out functions to test a single one, or add a new function for new checks. I will add an commandline option for this soon. 
+
+## Features realised & Upcoming features
+* see [changelog.txt](https://github.com/beamzer/ScirtScan/blob/main/changelog.txt)
 
 ## How to obtain the list of websites for your company/institution
 Ideally you have a CMDB (Configuration Management Database) and with one press on the right button it spits out a list of all your websites. If you don't have that, i suggest you work on that inventory. In the meantime there are some other tricks that can help you:
@@ -109,12 +118,6 @@ You might not have access to a Linux server or a Mac to run this code. Oracle ha
 
 ## Bugs
 probably, in fact almost certainly, please let me know
-
-## Upcoming features
-* ~~A check for the presence of `.well-known/security.txt `~~
-* A check for the precense of open directories
-* more output options (excel, pie-charts, ... ?)
-* see [changelog.txt](https://github.com/beamzer/ScirtScan/blob/main/changelog.txt)
  
 
 ## License and Disclaimer

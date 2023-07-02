@@ -7,7 +7,7 @@ import datetime
 import re
 from datetime import date
 
-version = "v2.0, 20230328"
+version = "v2.1b, 20230701"
 
 html_table = ""
 
@@ -50,7 +50,8 @@ except sqlite3.Error as e:
     sys.exit(f"Error connecting to database {database}: {e}")
 
 # Define the HTML table headers as a list, in the order they should appear on the webpage
-table_headers = ['website', 
+table_headers = ['website',
+                 'https',
                  'grade', 
                  'grade<br>check',
                  'HTTPS<br>redirect',
@@ -61,6 +62,7 @@ table_headers = ['website',
                  'robots<br>.txt', 
                  'version', 
                  'error', 
+                 'remnants',
                  'check date']
 
 # Using a loop to construct the header row
@@ -100,22 +102,31 @@ except sqlite3.Error as error:
 for row in result:
     debug and print(row)
     website = row[0]
-    grade = row[1]
-    grad_check = row[2]
-    redirect_check = row[3]
-    cert_valid = row[4]
-    hsts = row[5]
-    head_check = row[6]
-    security_txt = row[7]
-    robo_check = row[8]
-    vers_check = row[9]
-    err_check  = row[10]
-    date_check = row[11]
+    https_check = row[1]
+    grade = row[2]
+    grad_check = row[3]
+    redirect_check = row[4]
+    cert_valid = row[5]
+    hsts = row[6]
+    head_check = row[7]
+    security_txt = row[8]
+    robo_check = row[9]
+    vers_check = row[10]
+    err_check  = row[11]
+    remnants = row[12]
+    date_check = row[13]
         
-    debug and print(date_check, website, robo_check, head_check, vers_check, err_check, grad_check, grade, security_txt, cert_valid, redirect_check, hsts)
+    debug and print(date_check, website, https_check, robo_check, head_check, vers_check, err_check, grad_check, grade, security_txt, cert_valid, redirect_check, hsts)
  
     debugfile = f'{website}.txt'
     html_table += f'<tr><td><a class="check" href=https://{website}>{website}</a></td>'
+
+    if https_check == 1:
+        html_table += '<td class="green">&#x2705;</td>'
+    elif https_check == 0:
+        html_table += '<td class="red">&#10006;</td>'
+    else:
+        html_table += '<td class="orange"><b>&quest;</b></td>'
 
     if grad_check == 1:
         html_table += '<td class="green">'
@@ -155,8 +166,6 @@ for row in result:
         html_table += f'<td class="red">&#10006;</td>'
     elif hsts >= 365:
         html_table += f'<td class="green">{hsts}</td>'
-    elif hsts >= 182:
-        html_table += f'<td class="orange">{hsts}</td>'
     else:
         html_table += f'<td class="red">{hsts}</td>'
 
@@ -180,8 +189,7 @@ for row in result:
     if robo_check == 1:
         html_table += f'<td class="green">{robo_url}&#x2705;</a></td>'
     elif robo_check == 0:
-        # html_table += f'<td class="red">{robo_url}&#10006;</a></td>'
-        html_table += f'<td class="darkgreen">{robo_url}&#10006;</a></td>'
+        html_table += f'<td class="red">{robo_url}&#10006;</a></td>'
     else:
         html_table += f'<td class="orange">{robo_url}<b>&quest;</b></a></td>'
 
@@ -199,6 +207,12 @@ for row in result:
     else:
         html_table += f'<td class="orange"><b>&quest;</b></td>'
 
+    if remnants == 1:
+        html_table += f'<td class="green">&#x2705;</td>'
+    elif remnants == 0:
+        html_table += f'<td class="red">&#10006;</td>'
+    else:
+        html_table += f'<td class="orange"><b>&quest;</b></td>'
 
     html_table += f'<td><a class="check" href={debugfile}>{date_check}</td></tr>\n'
 

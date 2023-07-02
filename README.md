@@ -5,7 +5,7 @@
 
 This tool takes a list of websites and performs the following checks:
 
-* TLS/SSL check based on the Qualys SSL Scanner
+* TLS/SSL check based on the Qualys SSL Scanner or TestSSL.sh
 * Check on precense of robots.txt with only Allow statements (of DisAllow: /)
 * Check on HTTP headers, certain headers should be present
 * Check on absence of version info in HTTP headers check

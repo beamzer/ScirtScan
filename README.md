@@ -93,6 +93,7 @@ If you want to put the files on a webserver, copy the yyyymmdd directory(s) to t
 
 The webpage will look something like this:
 ![](https://raw.githubusercontent.com/beamzer/ScirtScan/main/scirtscan-table.png)
+and if you click on the check_date link for a specific website (on the far right), you will see the detail logs from all checks for that website.
 
 ## Structure
 The main python script (scirtscan.py) works with functions, you can easily comment out functions to test a single one, or add a new function for new checks.  

@@ -23,8 +23,8 @@ time_string = current_time.strftime("%Y-%m-%d %H:%M:%S")    # Format the time as
 
 # create the output directory (if it doesn't exist)
 today = datetime.date.today()
-#directory_path = today.strftime("%Y%m%d")
-directory_path = "debug_" + today.strftime("%Y%m%d")
+directory_path = today.strftime("%Y%m%d")
+#directory_path = "debug_" + today.strftime("%Y%m%d")
 if not os.path.exists(directory_path):
     try:
         os.makedirs(directory_path)

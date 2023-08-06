@@ -16,14 +16,15 @@ from subprocess import Popen
 import dns.resolver
 from pprint import pformat
 
-version = "v2.1c, 20230702"
+version = "v2.1e, 20230806"
 
 current_time = datetime.datetime.now()
 time_string = current_time.strftime("%Y-%m-%d %H:%M:%S")    # Format the time as a string
 
 # create the output directory (if it doesn't exist)
 today = datetime.date.today()
-directory_path = today.strftime("%Y%m%d")
+#directory_path = today.strftime("%Y%m%d")
+directory_path = "debug_" + today.strftime("%Y%m%d")
 if not os.path.exists(directory_path):
     try:
         os.makedirs(directory_path)
@@ -268,17 +269,23 @@ def check_dns(website):
             debug_print("no TXT records")
             outfile.write("no TXT records\n")
 
+    except dns.resolver.NoNameservers as e:
+        debug_print(f"DNS lookup for {website} failed with SERVFAIL")
+        outfile.write(f"DNS lookup for {website} failed with SERVFAIL")
+        return False
     except dns.resolver.NXDOMAIN:
-        debug_print("NXDOMAIN; Website {website} not found")
-        outfile.write("NXDOMAIN; Website {website} not found")
+        debug_print(f"NXDOMAIN; Website {website} not found")
+        outfile.write(f"NXDOMAIN; Website {website} not found")
         return False
     except dns.resolver.LifetimeTimeout as e:
-        print("DNS resolution failed due to lifetime timeout.")
+        print(f"DNS resolution for {website} failed due to lifetime timeout.")
         print(f"Error details: {e}")
         return False
 
     return True
 
+###########################################################################################################
+# Check if the website is reachable with HTTPS
 ###########################################################################################################
 # Check if the website is reachable with HTTPS
 def check_https_reachable(website):
@@ -290,29 +297,23 @@ def check_https_reachable(website):
         debug_print(f"Response Code: {response.status_code}")
         outfile.write(f"Response Code: {response.status_code}")
 
-        try:
-            c.execute("UPDATE website_checks SET https_reachable = ? WHERE websites = ?", (1, website))
-            conn.commit()
-            debug_print(f"record inserted into website_checks: 1")
-        except sqlite3.Error as error:
-            print("Failed to insert data into table", error)
 
-        return True
+    except (requests.HTTPError) as e:
+        debug_print(f"Website is reachable over HTTPS, but Response Code = {e.response.status_code}")
+        outfile.write(f"Response is {e}")
+        # HTTP 4xx or 5xx means a working website, so we don't exit here
 
-    except (requests.HTTPError, requests.ConnectionError, requests.Timeout, requests.TooManyRedirects) as e:
-        print("An error occurred. Please see details below.")
-        if isinstance(e, requests.HTTPError):
-            debug_print(f"HTTPError: Response Code {e.response.status_code}")
-            outfile.write(f"HTTPError: Response Code {e.response.status_code}")
-        elif isinstance(e, requests.ConnectionError):
+    except (requests.ConnectionError, requests.Timeout, requests.TooManyRedirects) as e:
+        print("Website is unreachable over HTTPS")
+        if isinstance(e, requests.ConnectionError):
             debug_print("ConnectionError: Failed to establish a connection")
-            outfile.write("ConnectionError: Failed to establish a connection")
+            outfile.write(f"ConnectionError: Failed to establish a connection, error msg:\n{e}")
         elif isinstance(e, requests.Timeout):
             debug_print("Timeout: The request timed out")
-            outfile.write("Timeout: The request timed out")
+            outfile.write(f"Timeout: The request timed out, error msg:\n{e}")
         elif isinstance(e, requests.TooManyRedirects):
             debug_print("TooManyRedirects: The request exceeded the configured number of maximum redirections")
-            outfile.write("TooManyRedirects: The request exceeded the configured number of maximum redirections")
+            outfile.write(f"TooManyRedirects: The request exceeded the configured number of maximum redirections, error msg:\n{e}")
 
         try:
             c.execute("UPDATE website_checks SET https_reachable = ? WHERE websites = ?", (0, website))
@@ -323,6 +324,14 @@ def check_https_reachable(website):
 
         return False
 
+    try:
+        c.execute("UPDATE website_checks SET https_reachable = ? WHERE websites = ?", (1, website))
+        conn.commit()
+        debug_print(f"record inserted into website_checks: 1")
+    except sqlite3.Error as error:
+        print("Failed to insert data into table", error)
+
+    return True
 
 ###########################################################################################################
 # Check that certain security headers are present in the HTTP header

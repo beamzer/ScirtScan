@@ -7,7 +7,8 @@ import datetime
 import re
 from datetime import date
 
-version = "v2.1c, 20230702"
+# for this to display and work (sort) properly, sort.js and styles.css need to be in the directory above index.html
+version = "v2.1e, 20230817"
 
 html_table = ""
 
@@ -68,12 +69,13 @@ table_headers = ['website',
 
 # Using a loop to construct the header row
 count=0
-header_row = '<tr style="text-align: right;">'
-for header in table_headers:
-        header_row += f'<th onclick="sortTable({count})">{header}'
-        header_row += '<div class="explanation">click to sort</div></th>'
-        count += 1
-header_row += '</tr>'
+# header_row = '<tr style="text-align: right;">'
+# for header in table_headers:
+#         header_row += f'<th onclick="sortTable({count})">{header}'
+#         header_row += '<div class="explanation">click to sort</div></th>'
+#         count += 1
+# header_row += '</tr>'
+
 
 # Query the table structure from the meta table
 c.execute("SELECT structure FROM meta")
@@ -240,15 +242,29 @@ html_page = """
 <html>
 <head>
     <title>ScirtScan</title>
-    <style>
-    {}
-    </style>
+    <link rel="stylesheet" href="../styles.css">
 </head>
 <body>
-    {}
+  <script src="../sort.js"></script>
   <table border="1" class="dataframe mystyle" id="myTable">
   <thead>
-    {}
+    <tr style="text-align: right;">
+    <th onclick="sortTable(0)">website<div class="explanation">click to sort</div></th>
+    <th onclick="sortTable(1)">https<div class="explanation">click to sort</div></th>
+    <th onclick="sortGrades(2)">grade<div class="explanation">click to sort</div></th>
+    <th onclick="sortTable(3)">grade<br>check<div class="explanation">click to sort</div></th>
+    <th onclick="sortTable(4)">HTTPS<br>redirect<div class="explanation">click to sort</div></th>
+    <th onclick="sortTable(5)">cert<br>validity<div class="explanation">click to sort</div></th>
+    <th onclick="sortTable(6)">HSTS<br>(days)<div class="explanation">click to sort</div></th>
+    <th onclick="sortTable(7)">headers<div class="explanation">click to sort</div></th>
+    <th onclick="sortTable(8)">security<br>.txt<div class="explanation">click to sort</div></th>
+    <th onclick="sortTable(9)">robots<br>.txt<div class="explanation">click to sort</div></th>
+    <th onclick="sortTable(10)">version<div class="explanation">click to sort</div></th>
+    <th onclick="sortTable(11)">error<div class="explanation">click to sort</div></th>
+    <th onclick="sortTable(12)">remnants<div class="explanation">click to sort</div></th>
+    <th onclick="sortTable(13)">debug<div class="explanation">click to sort</div></th>
+    <th onclick="sortTable(14)">check date<div class="explanation">click to sort</div></th>
+    </tr>
   </thead>
   <tbody>
     {}
@@ -264,7 +280,7 @@ html_page = """
   Click here for a: <a href="debug.log">debug.log</a> unless scirtscan was run with --no_debugfile<br />
 </body>
 </html>
-""".format(css_styles, sort_js, header_row, html_table)
+""".format(html_table)
 
 myindex = directory_path + "/" + "index.html"
 try:

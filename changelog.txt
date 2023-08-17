@@ -18,6 +18,9 @@ v2.5, upcoming
 	(this was on the requirement list from day one, just need to find a
 	reliable method to do this)
 
+v2.1e, 20230817
+	* better sorting algorithm on the webpage, which handles the non-numeric values
+
 v2.1c, 20230702
 	* added a check to find the word "debug" in the HTTP headers to find
 	websites with debug mode still enabled (for instance laravel)

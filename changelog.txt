@@ -18,6 +18,9 @@ v2.5, upcoming
 	(this was on the requirement list from day one, just need to find a
 	reliable method to do this)
 
+v2.1e, 20230820
+	* added a script organize.py the manage the content on the webserver
+
 v2.1e, 20230817
 	* better sorting algorithm on the webpage, which handles the non-numeric values
 

@@ -18,6 +18,9 @@ v2.5, upcoming
 	(this was on the requirement list from day one, just need to find a
 	reliable method to do this)
 
+v2.1f, 20231001
+	* changed stylesheet to keep the table header in place while scrolling
+
 v2.1e, 20230820
 	* added a script organize.py the manage the content on the webserver
 

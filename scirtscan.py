@@ -16,7 +16,7 @@ from subprocess import Popen
 import dns.resolver
 from pprint import pformat
 
-version = "v2.1e, 20230806"
+version = "v2.1f, 20231009"
 
 current_time = datetime.datetime.now()
 time_string = current_time.strftime("%Y-%m-%d %H:%M:%S")    # Format the time as a string
@@ -689,7 +689,7 @@ def check_security_file(website):
     check_security_file = 0
     try:
         response = requests.get(f"https://{website}/.well-known/security.txt", headers=headers)
-        if response.status_code >= 200 and response.status_code < 300:
+        if response.status_code >= 200 and response.status_code < 300 and response.headers['content-type']=="text/plain":
             check_security_file = 1
             outfile.write("OK\n")
             outfile.write(response.text)

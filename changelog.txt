@@ -18,6 +18,10 @@ v2.5, upcoming
 	(this was on the requirement list from day one, just need to find a
 	reliable method to do this)
 
+v2.1g, 20231109
+	* improved check for security.txt (thanks Paul H.)
+	* removed robots.txt from good/bad check, but still keep results in website log
+
 v2.1f, 20231001
 	* changed stylesheet to keep the table header in place while scrolling
 

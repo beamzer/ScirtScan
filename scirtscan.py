@@ -16,7 +16,7 @@ from subprocess import Popen
 import dns.resolver
 from pprint import pformat
 
-version = "v2.1f, 20231009"
+version = "v2.1g, 20231109"
 
 current_time = datetime.datetime.now()
 time_string = current_time.strftime("%Y-%m-%d %H:%M:%S")    # Format the time as a string
@@ -186,13 +186,12 @@ c.execute('''CREATE TABLE IF NOT EXISTS website_checks
                 redirect_check INT,
                 cert_validity INT,
                 hsts INT,                
-                headers_check INT,
                 security_txt INT,
-                robots_check INT,
                 version_check INT,
                 error_check INT,
                 remnants INT,
                 debug INT,
+                headers_check INT,
                 check_date TEXT                
             )''')
 
@@ -202,7 +201,7 @@ c.execute("CREATE TABLE IF NOT EXISTS meta (structure TEXT, version TEXT)")
 # Insert the table structure into the meta table, so sql2html.py and sql2excel.py can use this
 table_structure = """
 (   websites TEXT, https_reachable INT, grade TEXT, grade_check INT, redirect_check INT, cert_validity INT, hsts INT,
-    headers_check INT, security_txt INT, robots_check INT, version_check INT, error_check INT, remnants INT, debug INT, 
+    security_txt INT, version_check INT, error_check INT, remnants INT, debug INT, headers_check INT,
     check_date TEXT )
 """
 
@@ -359,6 +358,7 @@ def check_http_headers(website):
     hsts_duration = None
     hsts_duration_days = None
     check_header = 1
+    result = "OK"
 
     for header in headers_to_check:
         outfile.write(f'checking precense of: {header} ')
@@ -377,6 +377,7 @@ def check_http_headers(website):
     if missing_headers:
         outfile.write(f"ERR Missing headers for {website}: {', '.join(missing_headers)}\n")
         check_header = 0
+        result = "NOK"
 
     if hsts_duration is not None:
         hsts_duration_days = int(hsts_duration/(24*3600))
@@ -385,15 +386,18 @@ def check_http_headers(website):
         else:
             outfile.write(f"ERR, {website} HSTS value is LESS than one year: {hsts_duration_days} days\n")
             check_header = 0
+            result = "NOK"
     else:
         outfile.write(f"ERR {website} is missing Strict-Transport-Security header\n")
         check_header = 0
+        result = "NOK"
 
     headers_formatted = pformat(dict(response.headers))
     outfile.write(f'{headers_formatted}\n')
 
     try:
         c.execute("UPDATE website_checks SET headers_check = ? WHERE websites = ?", (check_header, website))
+        outfile.write(f"header check result = {result}")
         c.execute("UPDATE website_checks SET hsts = ? WHERE websites = ?", (hsts_duration_days, website))
         conn.commit()
         debug_print(f"record inserted into website_checks {check_header}")
@@ -492,12 +496,15 @@ def robots_check(url):
 
         check_robots = 1 if check == "OK" else 0
 
-        try:
-            c.execute("UPDATE website_checks SET robots_check = ? WHERE websites = ?", (check_robots, website))
-            conn.commit()
-            debug_print(f"record inserted into website_checks {check_robots}")
-        except sqlite3.Error as error:
-            print("Failed to insert data into table", error)
+        # The code is functional, but at the moment other checks have priority, so we'll leave
+        # the good/bad results from the overview, but just store the info in the per website debug file
+        #
+        # try:
+        #     c.execute("UPDATE website_checks SET robots_check = ? WHERE websites = ?", (check_robots, website))
+        #     conn.commit()
+        #     debug_print(f"record inserted into website_checks {check_robots}")
+        # except sqlite3.Error as error:
+        #     print("Failed to insert data into table", error)
 
         return check
     except KeyboardInterrupt:
@@ -689,7 +696,7 @@ def check_security_file(website):
     check_security_file = 0
     try:
         response = requests.get(f"https://{website}/.well-known/security.txt", headers=headers)
-        if response.status_code >= 200 and response.status_code < 300 and response.headers['content-type']=="text/plain":
+        if response.status_code >= 200 and response.status_code < 300 and response.headers['Content-Type'].startswith("text/plain"):
             check_security_file = 1
             outfile.write("OK\n")
             outfile.write(response.text)

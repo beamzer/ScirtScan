@@ -8,7 +8,7 @@ import re
 from datetime import date
 
 # for this to display and work (sort) properly, sort.js and styles.css need to be in the directory above index.html
-version = "v2.1f, 20230908"
+version = "v2.1g, 20231009"
 
 html_table = ""
 
@@ -111,16 +111,16 @@ for row in result:
     redirect_check = row[4]
     cert_valid = row[5]
     hsts = row[6]
-    head_check = row[7]
-    security_txt = row[8]
-    robo_check = row[9]
-    vers_check = row[10]
-    err_check  = row[11]
-    remnants = row[12]
-    debug = row[13]
-    date_check = row[14]
+    security_txt = row[7]
+#    robo_check = row[9]
+    vers_check = row[8]
+    err_check  = row[9]
+    remnants = row[10]
+    debug = row[11]
+    head_check = row[12]
+    date_check = row[13]
         
-    debug and print(date_check, website, https_check, grad_check, grade, redirect_check, cert_valid, hsts, head_check, security_txt, robo_check, vers_check, err_check, remnants, debug)
+    debug and print(date_check, website, https_check, grad_check, grade, redirect_check, cert_valid, hsts, security_txt, vers_check, err_check, remnants, debug, head_check)
  
     debugfile = f'{website}.txt'
     html_table += f'<tr><td><a class="check" href=https://{website}>{website}</a></td>'
@@ -173,14 +173,6 @@ for row in result:
     else:
         html_table += f'<td class="red">{hsts}</td>'
 
-
-    if head_check == 1:
-        html_table += f'<td class="green">&#x2705;</td>'
-    elif head_check == 0:
-        html_table += f'<td class="red">&#10006;</td>'
-    else:
-        html_table += f'<td class="orange"><b>&quest;</b></td>'
-
     if security_txt == 1:
         sectxtlink = f'<a class="check" href="https://{website}/.well-known/security.txt">&#x2705;</a>'
         html_table += f'<td class="green">{sectxtlink}</td>'
@@ -189,13 +181,13 @@ for row in result:
     else:
         html_table += f'<td class="orange"><b>&quest;</b></td>'
            
-    robo_url = f'<a class="check" href="https://{website}/robots.txt">'
-    if robo_check == 1:
-        html_table += f'<td class="green">{robo_url}&#x2705;</a></td>'
-    elif robo_check == 0:
-        html_table += f'<td class="red">{robo_url}&#10006;</a></td>'
-    else:
-        html_table += f'<td class="orange">{robo_url}<b>&quest;</b></a></td>'
+    # robo_url = f'<a class="check" href="https://{website}/robots.txt">'
+    # if robo_check == 1:
+    #     html_table += f'<td class="green">{robo_url}&#x2705;</a></td>'
+    # elif robo_check == 0:
+    #     html_table += f'<td class="red">{robo_url}&#10006;</a></td>'
+    # else:
+    #     html_table += f'<td class="orange">{robo_url}<b>&quest;</b></a></td>'
 
     if vers_check == 1:
         html_table += f'<td class="green">&#x2705;</td>'
@@ -222,6 +214,13 @@ for row in result:
         html_table += f'<td class="green">&#x2705;</td>'
     elif debug == 0:
         html_table += f'<td class="red">&#10006;</td>'
+    else:
+        html_table += f'<td class="orange"><b>&quest;</b></td>'
+
+    if head_check == 1:
+        html_table += f'<td class="green">&#x2705;</td>'
+    elif head_check == 0:
+        html_table += f'<td class="black">&#10006;</td>'
     else:
         html_table += f'<td class="orange"><b>&quest;</b></td>'
 
@@ -256,14 +255,13 @@ html_page = """
     <th onclick="sortTable(4)">HTTPS<br>redirect<div class="explanation">click to sort</div></th>
     <th onclick="sortTable(5)">cert<br>validity<div class="explanation">click to sort</div></th>
     <th onclick="sortTable(6)">HSTS<br>(days)<div class="explanation">click to sort</div></th>
-    <th onclick="sortTable(7)">headers<div class="explanation">click to sort</div></th>
-    <th onclick="sortTable(8)">security<br>.txt<div class="explanation">click to sort</div></th>
-    <th onclick="sortTable(9)">robots<br>.txt<div class="explanation">click to sort</div></th>
-    <th onclick="sortTable(10)">version<div class="explanation">click to sort</div></th>
-    <th onclick="sortTable(11)">error<div class="explanation">click to sort</div></th>
-    <th onclick="sortTable(12)">remnants<div class="explanation">click to sort</div></th>
-    <th onclick="sortTable(13)">debug<div class="explanation">click to sort</div></th>
-    <th onclick="sortTable(14)">check date<div class="explanation">click to sort</div></th>
+    <th onclick="sortTable(7)">security<br>.txt<div class="explanation">click to sort</div></th>
+    <th onclick="sortTable(8)">version<div class="explanation">click to sort</div></th>
+    <th onclick="sortTable(9)">error<div class="explanation">click to sort</div></th>
+    <th onclick="sortTable(10)">remnants<div class="explanation">click to sort</div></th>
+    <th onclick="sortTable(11)">debug<div class="explanation">click to sort</div></th>
+    <th onclick="sortTable(12)">headers<div class="explanation">click to sort</div></th>
+    <th onclick="sortTable(13)">check date<div class="explanation">click to sort</div></th>
     </tr>
   </thead>
   <tbody>

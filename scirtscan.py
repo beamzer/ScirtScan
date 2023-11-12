@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import threading    # because of running multiple ssllabs check concurrently
 import sqlite3
 import argparse
 import os
@@ -16,7 +17,7 @@ from subprocess import Popen
 import dns.resolver
 from pprint import pformat
 
-version = "v2.1g, 20231109"
+version = "v2.2, 20231112"
 
 current_time = datetime.datetime.now()
 time_string = current_time.strftime("%Y-%m-%d %H:%M:%S")    # Format the time as a string
@@ -560,9 +561,94 @@ def error_check(url):
         print(error)
 
 ###########################################################################################################
-# This checks that the website has the right grade on the Qualys SSLtest ( https://www.ssllabs.com/ssltest/ )
+# new SSLlabs check which will use multiple threads running in the background to speed things up
 #
-def get_ssl_labs_grade(website: str, use_cache=True) -> str:
+def background_ssl_check(website, use_cache, aheaders, outfile_path, db_path):
+    base_url = "https://api.ssllabs.com/api/v3"
+    if use_cache:
+        analyze_url = f"{base_url}/analyze?host={website}&all=done&publish=off&fromCache=on&maxAge=24"
+    else:
+        analyze_url = f"{base_url}/analyze?host={website}&all=done&publish=off&fromCache=off"
+
+    # analyze_url = f"{base_url}/analyze?host={website}&all=done&publish=off&fromCache={'on' if use_cache else 'off'}"
+    debug_print(f"analyze_url = {analyze_url}")
+
+    # Each thread creates its own database connection
+    conn = sqlite3.connect(db_path)
+    c = conn.cursor()
+
+    # Check for rate limits before starting the analysis
+    try:
+        rate_limit_response = requests.head(analyze_url, headers=aheaders)
+        rate_limit_response.raise_for_status()
+        max_assessments = int(rate_limit_response.headers.get('X-Max-Assessments', 0))
+        current_assessments = int(rate_limit_response.headers.get('X-Current-Assessments', 0))
+        debug_print(f"max and current assessment values are: {max_assessments} {current_assessments}")
+        if current_assessments >= max_assessments:
+            debug_print("Rate limit reached, waiting before re-attempting")
+            time.sleep(10)  # Wait time before retrying, adjust as needed
+            return background_ssl_check(website, use_cache, aheaders, outfile_path, db_path)  # Retry the function
+
+    except requests.exceptions.RequestException as e:
+        debug_print(f"Error while checking rate limits: {e}")
+        return
+
+    # Start the analysis with proper error handling
+    try:
+        response = requests.get(analyze_url, headers=aheaders)
+        response.raise_for_status()
+    except requests.exceptions.Timeout:
+        debug_print(f"timeout error connecting to ssllabs")
+        return
+    except requests.exceptions.TooManyRedirects:
+        debug_print(f"too many redirects while connecting to ssllabs")
+        return
+    except requests.exceptions.HTTPError as e:
+        debug_print(f"error while connecting to ssllabs: {e}")
+        return
+    except requests.exceptions.RequestException as e:
+        debug_print(f"error while connecting to ssllabs: {e}")
+        return
+
+    result = response.json()
+
+    # Polling the API with appropriate wait times
+    while result.get('status', None) not in ('READY', 'ERROR'):
+        time.sleep(5 if result.get('status') == 'IN_PROGRESS' else 10)
+        try:
+            response = requests.get(analyze_url, headers=aheaders)
+            result = response.json()
+        except requests.exceptions.RequestException as e:
+            debug_print(f"Error while re-polling ssllabs: {e}")
+            return
+
+    if result.get('status') == 'READY':
+        grade = result['endpoints'][0]['grade']
+
+        # Database operations
+        try:
+            with conn:
+                c.execute("UPDATE website_checks SET grade = ? WHERE websites = ?", (grade, website))
+            debug_print(f"Updated ssllabs record for {website}")
+        except sqlite3.Error as error:
+            debug_print(f"Failed to update data in table for {website}: {error}")
+    else:
+        debug_print(f"Error: ssllabs check could not be completed for {website}")
+
+    # Write JSON result to file
+    with open(outfile_path, "a") as outfile:
+        json_formatted_str = json.dumps(result, indent=2)
+        outfile.write(f'{json_formatted_str}\n')
+
+    # Close the thread's database connection
+    conn.close()
+
+
+###########################################################################################################
+# This checks that the website has the right grade on the Qualys SSLtest ( https://www.ssllabs.com/ssltest/ )
+# this is the old single thread version, which makes it slow if you have more than one site to check
+#
+def get_ssl_labs_grade_single(website: str, use_cache=True) -> str:
     debug_print(f"=== get_ssllabs_grade {website}")
     outfile.write("\n===========SSL/TLS Configuration CHECK\n")
 
@@ -571,9 +657,9 @@ def get_ssl_labs_grade(website: str, use_cache=True) -> str:
     # analyze_url = f"{base_url}/analyze?host={website}&publish=off&all=done&fromCache={cache_param}"
     if use_cache:
         # analyze_url = f"{base_url}/analyze?host={website}&publish=off&all=done&fromCache=on&maxAge=24"
-        analyze_url = f"{base_url}/analyze?host={website}&publish=off&fromCache=on&maxAge=24"
+        analyze_url = f"{base_url}/analyze?host={website}&all=done&publish=off&fromCache=on&maxAge=24"
     else:
-        analyze_url = f"{base_url}/analyze?host={website}&publish=off&fromCache=off"
+        analyze_url = f"{base_url}/analyze?host={website}&all=done&publish=off&fromCache=off"
     
     # Start the analysis
     try:
@@ -773,45 +859,70 @@ def check_ssl_certificate_validity(website):
         return False
 
 ###########################################################################################################
-# check if HTTP requests are redirected to HTTPS
+# check if the website is reachable over HTTP and if so, if requests are redirected to HTTPS
 #
 def check_http_redirected_to_https(website: str) -> bool:
     debug_print(f"=== check_http_redirected_to_https {website}")
     outfile.write("\n===========Check HTTP redirect to HTTPS\n")
 
+    httperr = False
+
     try:
         http_url = f'http://{website}'
-        response = requests.get(http_url, allow_redirects=False, timeout=10, headers=headers)
+        response = requests.get(http_url, allow_redirects=False, timeout=3, headers=headers)
+        response.raise_for_status()
         headers_formatted = pformat(dict(response.headers))
         response_code = response.status_code
+        outfile.write(f"HTTP request returns response code: {response_code}\n")
+        outfile.write(f"HTTP headers are: {headers_formatted}\n")
+    except requests.exceptions.ConnectionError:
+        httperr = True
+        debug_print(f"HTTP Connection failed: {url} is not reachable over HTTP (port 80).")
+        outfile.write(f"HTTP Connection failed: {url} is not reachable over HTTP (port 80).")
+    except requests.exceptions.Timeout:
+        httperr = True
+        debug_print(f"HTTP Request timed out: {url} took too long to respond.")
+        outfile.write(f"HTTP Request timed out: {url} took too long to respond.")
+    except requests.exceptions.HTTPError as err:
+        httperr = True
+        debug_print(f"HTTP error occurred: {err}")
+        outfile.write(f"HTTP error occurred: {err}")
+    except requests.exceptions.RequestException as err:
+        httperr = True
+        debug_print(f"Error occurred: {err}")
+        outfile.write(f"Error occurred: {err}")
 
-        response = requests.get(http_url, allow_redirects=True, timeout=10, headers=headers)
+    if httperr:
+        check_redirect = 1  # from a security perspective this is also OK, will change the variable name some day
+    else:
+        try:
+            response = requests.get(http_url, allow_redirects=True, timeout=3, headers=headers)
 
-        if response.history:
-            final_url = response.url
-            if final_url.startswith('https://'):
-                check_redirect = 1
-                outfile.write(f"{http_url} redirects HTTP to HTTPS\n")
-            else:
-                redirect_check = 0
-                outfile.write(f"ERR {http_url} does not redirect HTTP to HTTPS\n")
-            
-            outfile.write(f"HTTP request returns response code: {response_code}\n")
-            outfile.write(f"final URL is: {final_url}\n")
-            outfile.write(f"{headers_formatted}\n")
+            if response.history:
+                final_url = response.url
+                if final_url.startswith('https://'):
+                    check_redirect = 1
+                    outfile.write(f"{http_url} redirects HTTP to HTTPS\n")
+                else:
+                    redirect_check = 0
+                    outfile.write(f"ERR {http_url} does not redirect HTTP to HTTPS\n")
+                
+                
+                outfile.write(f"final URL is: {final_url}\n")
+        except requests.exceptions.RequestException as err:
+            print(f"HTTP request with allow redirects, Error: {err}")
+            outfile.write(f"HTTP request with allow redirects, Error: {err}\n")
+            return False      
 
-            try:
-                c.execute("UPDATE website_checks SET redirect_check = ? WHERE websites = ?", (check_redirect, website))
-                conn.commit()
-                debug_print(f"record inserted into redirect_checks {check_redirect}")
-            except sqlite3.Error as error:
-                print("Failed to insert data into table", error)
-                return False
-
-    except requests.exceptions.RequestException as e:
-        print(f"Error: {e}")
-        outfile.write(f"Error: {e}\n")
+    try:
+        c.execute("UPDATE website_checks SET redirect_check = ? WHERE websites = ?", (check_redirect, website))
+        conn.commit()
+        debug_print(f"record inserted into redirect_checks {check_redirect}")
+    except sqlite3.Error as error:
+        print("Failed to insert data into table", error)
         return False
+
+
 
     return True
 
@@ -880,24 +991,24 @@ def check_debug_in_headers(website):
     debug_print(f"=== check_debug_in_headers {website}")
     outfile.write("\n===========Check for the word \"debug\" in HTTP header info\n")
 
-    for prefix in ['http://', 'https://']:
-        try:
-            response = requests.get(prefix + website)
-            headers = response.headers
-            for key, value in headers.items():
-                if 'debug' in key.lower() or 'debug' in value.lower():
-                    debug_print(f"'debug' found in {key} header for {prefix}{website}")
-                    outfile.write(f"'debug' found in {key} header for {prefix}{website}")
-                    try:
-                        c.execute("UPDATE website_checks SET debug = ? WHERE websites = ?", (0, website))
-                        conn.commit()
-                        debug_print(f"record inserted into website_checks for debug: 0")
-                    except sqlite3.Error as error:
-                        print("Failed to insert data into table", error)
-                    return False
+    prefix = "https"
+    try:
+        response = requests.get(website, timeout = 3)
+        headers = response.headers
+        for key, value in headers.items():
+            if 'debug' in key.lower() or 'debug' in value.lower():
+                debug_print(f"'debug' found in {key} header for {prefix}{website}")
+                outfile.write(f"'debug' found in {key} header for {prefix}{website}")
+                try:
+                    c.execute("UPDATE website_checks SET debug = ? WHERE websites = ?", (0, website))
+                    conn.commit()
+                    debug_print(f"record inserted into website_checks for debug: 0")
+                except sqlite3.Error as error:
+                    print("Failed to insert data into table", error)
+                return False
 
-        except requests.exceptions.RequestException as e:
-            debug_print(f"Error while connecting to {prefix}{website}: {str(e)}")
+    except requests.exceptions.RequestException as e:
+        debug_print(f"Error while connecting to {prefix}{website}: {str(e)}")
 
     debug_print("debug not found in HTTP headers")
     outfile.write("debug not found in HTTP headers")
@@ -938,13 +1049,16 @@ for website in inlines:
 # when you are modifying a function or adding another one, comment out all other functions 
 # untill it works the way you want. Or add other commandline arguments to you can specify it at runtime
 
+    threads = []    # List to keep track of SSL check threads
+
+    sqlitefile = os.path.join(directory_path, 'websites.db')
+
     if check_dns(website) and check_https_reachable(website):
         try:
             if oqualys:
-                if nocache:
-                    get_ssl_labs_grade(website, use_cache=False)
-                else:
-                    get_ssl_labs_grade(website)
+                thread = threading.Thread(target=background_ssl_check, args=(website, not nocache, aheaders, myfile, sqlitefile))
+                thread.start()
+                threads.append(thread)
                 continue
 
             if otestssl:
@@ -959,16 +1073,15 @@ for website in inlines:
             check_ssl_certificate_validity(website)
             check_http_redirected_to_https(website)
             check_remants(website)
-            check_debug_in_headers(website)
+            check_debug_in_headers(url)
 
             if testssl:
                 check_testssl(website)
             else:
                 if not xqualys:
-                    if nocache:
-                        get_ssl_labs_grade(website, use_cache=False)
-                    else:
-                        get_ssl_labs_grade(website)
+                    thread = threading.Thread(target=background_ssl_check, args=(website, not nocache, aheaders, myfile, sqlitefile))
+                    thread.start()
+                    threads.append(thread)
                 else:
                     outfile.write('\n===========SSL/TLS Configuration CHECK\nSkipped because use of -nq\n')
 
@@ -976,6 +1089,11 @@ for website in inlines:
             sys.exit("as you wish, aborting...")
         except OSError as e:
             sys.exit(f"Oops, scirtscan.py made a booboo: {e}")
+
+# Wait for all SSL check threads to complete
+debug_print("\nnow waiting for threads to finish...")
+for thread in threads:
+    thread.join()
 
 # commit to all changes and close the sqlite database
 conn.commit()

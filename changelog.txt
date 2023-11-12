@@ -18,6 +18,10 @@ v2.5, upcoming
 	(this was on the requirement list from day one, just need to find a
 	reliable method to do this)
 
+v2.2, 20231112
+	* SSLlabs checks run now multithreaded to speed things up
+	* check for HTTP->HTTPS redirect also accepts no HTTP service as OK
+
 v2.1g, 20231109
 	* improved check for security.txt (thanks Paul H.)
 	* removed robots.txt from good/bad check, but still keep results in website log

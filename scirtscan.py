@@ -17,7 +17,7 @@ from subprocess import Popen
 import dns.resolver
 from pprint import pformat
 
-version = "v2.2, 20231112"
+version = "v2.2, 20231113"
 
 current_time = datetime.datetime.now()
 time_string = current_time.strftime("%Y-%m-%d %H:%M:%S")    # Format the time as a string
@@ -571,7 +571,7 @@ def background_ssl_check(website, use_cache, aheaders, outfile_path, db_path):
         analyze_url = f"{base_url}/analyze?host={website}&all=done&publish=off&fromCache=off"
 
     # analyze_url = f"{base_url}/analyze?host={website}&all=done&publish=off&fromCache={'on' if use_cache else 'off'}"
-    debug_print(f"analyze_url = {analyze_url}")
+    # debug_print(f"analyze_url = {analyze_url}")
 
     # Each thread creates its own database connection
     conn = sqlite3.connect(db_path)
@@ -583,7 +583,7 @@ def background_ssl_check(website, use_cache, aheaders, outfile_path, db_path):
         rate_limit_response.raise_for_status()
         max_assessments = int(rate_limit_response.headers.get('X-Max-Assessments', 0))
         current_assessments = int(rate_limit_response.headers.get('X-Current-Assessments', 0))
-        debug_print(f"max and current assessment values are: {max_assessments} {current_assessments}")
+        debug_print(f"SSLlabs API max and current assessment values are: {max_assessments} {current_assessments}")
         if current_assessments >= max_assessments:
             debug_print("Rate limit reached, waiting before re-attempting")
             time.sleep(10)  # Wait time before retrying, adjust as needed
@@ -866,6 +866,7 @@ def check_http_redirected_to_https(website: str) -> bool:
     outfile.write("\n===========Check HTTP redirect to HTTPS\n")
 
     httperr = False
+    check_redirect = 0
 
     try:
         http_url = f'http://{website}'
@@ -893,7 +894,7 @@ def check_http_redirected_to_https(website: str) -> bool:
         outfile.write(f"Error occurred: {err}")
 
     if httperr:
-        check_redirect = 1  # from a security perspective this is also OK, will change the variable name some day
+        check_redirect = 1  # from a security perspective this is also OK, because no unencrypted connection; will change the variable name some day
     else:
         try:
             response = requests.get(http_url, allow_redirects=True, timeout=3, headers=headers)
@@ -904,7 +905,6 @@ def check_http_redirected_to_https(website: str) -> bool:
                     check_redirect = 1
                     outfile.write(f"{http_url} redirects HTTP to HTTPS\n")
                 else:
-                    redirect_check = 0
                     outfile.write(f"ERR {http_url} does not redirect HTTP to HTTPS\n")
                 
                 

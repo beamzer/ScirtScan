@@ -17,7 +17,7 @@ from subprocess import Popen
 import dns.resolver
 from pprint import pformat
 
-version = "v2.2, 20231113"
+version = "v2.2a, 20231113"
 
 current_time = datetime.datetime.now()
 time_string = current_time.strftime("%Y-%m-%d %H:%M:%S")    # Format the time as a string
@@ -573,13 +573,15 @@ def background_ssl_check(website, use_cache, aheaders, outfile_path, db_path):
     # analyze_url = f"{base_url}/analyze?host={website}&all=done&publish=off&fromCache={'on' if use_cache else 'off'}"
     # debug_print(f"analyze_url = {analyze_url}")
 
+    info_url = f"{base_url}/info"
+
     # Each thread creates its own database connection
     conn = sqlite3.connect(db_path)
     c = conn.cursor()
 
     # Check for rate limits before starting the analysis
     try:
-        rate_limit_response = requests.head(analyze_url, headers=aheaders)
+        rate_limit_response = requests.head(info_url)   # Let's check the API status and if we can submit a new website check
         rate_limit_response.raise_for_status()
         max_assessments = int(rate_limit_response.headers.get('X-Max-Assessments', 0))
         current_assessments = int(rate_limit_response.headers.get('X-Current-Assessments', 0))

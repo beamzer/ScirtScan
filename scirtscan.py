@@ -17,7 +17,7 @@ from subprocess import Popen
 import dns.resolver
 from pprint import pformat
 
-version = "v2.2b, 20231113"
+version = "v2.2c, 20231113"
 
 current_time = datetime.datetime.now()
 time_string = current_time.strftime("%Y-%m-%d %H:%M:%S")    # Format the time as a string
@@ -564,6 +564,7 @@ def error_check(url):
 # new SSLlabs check which will use multiple threads running in the background to speed things up
 #
 def background_ssl_check(website, use_cache, aheaders, outfile_path, db_path):
+    debug_print(f"=== start thread for get_ssllabs_grade {website}")
     base_url = "https://api.ssllabs.com/api/v3"
     if use_cache:
         analyze_url = f"{base_url}/analyze?host={website}&all=done&publish=off&fromCache=on&maxAge=24"
@@ -650,6 +651,7 @@ def background_ssl_check(website, use_cache, aheaders, outfile_path, db_path):
 
     # Write JSON result to file
     with open(outfile_path, "a") as outfile:
+        outfile.write("\n===========SSL/TLS Configuration CHECK\n")
         outfile.write(f"=> grade = {grade}, host = {host}, IP-Address = {ipAddress}")
         json_formatted_str = json.dumps(result, indent=2)
         outfile.write(f'{json_formatted_str}\n')

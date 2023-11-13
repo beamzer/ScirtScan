@@ -17,7 +17,7 @@ from subprocess import Popen
 import dns.resolver
 from pprint import pformat
 
-version = "v2.2a, 20231113"
+version = "v2.2b, 20231113"
 
 current_time = datetime.datetime.now()
 time_string = current_time.strftime("%Y-%m-%d %H:%M:%S")    # Format the time as a string
@@ -626,19 +626,31 @@ def background_ssl_check(website, use_cache, aheaders, outfile_path, db_path):
 
     if result.get('status') == 'READY':
         grade = result['endpoints'][0]['grade']
-
-        # Database operations
-        try:
-            with conn:
-                c.execute("UPDATE website_checks SET grade = ? WHERE websites = ?", (grade, website))
-            debug_print(f"Updated ssllabs record for {website}")
-        except sqlite3.Error as error:
-            debug_print(f"Failed to update data in table for {website}: {error}")
+        host = result['host']
+        ipAddress = result['endpoints'][0]['ipAddress']
+        debug_print(f"grade = {grade}, host = {host}, IP-Address = {ipAddress}")
     else:
-        debug_print(f"Error: ssllabs check could not be completed for {website}")
+        print(f"Error: ssllabs check could not be completed for {website}")
+        # outfile.write(f"Error: ssllabs check could not be completed for {website}")
+        return None
+
+    #regexp = re.compile(r'A\+')      # change A+ to something else if your policy requires differently
+    regexp = re.compile(r'A')         # anything from an A- and better is good for us
+    if regexp.search(grade):
+        check_score = 1
+    else:
+        check_score = 0
+
+    try:
+        with conn:
+            c.execute("UPDATE website_checks SET grade = ?, grade_check = ? WHERE websites = ?", (grade, check_score, website))
+        debug_print(f"Updated ssllabs record for {website}")
+    except sqlite3.Error as error:
+        debug_print(f"Failed to update data in table for {website}: {error}")
 
     # Write JSON result to file
     with open(outfile_path, "a") as outfile:
+        outfile.write(f"=> grade = {grade}, host = {host}, IP-Address = {ipAddress}")
         json_formatted_str = json.dumps(result, indent=2)
         outfile.write(f'{json_formatted_str}\n')
 
@@ -655,10 +667,8 @@ def get_ssl_labs_grade_single(website: str, use_cache=True) -> str:
     outfile.write("\n===========SSL/TLS Configuration CHECK\n")
 
     base_url = "https://api.ssllabs.com/api/v3"
-    # cache_param = 'on' if use_cache else 'off'
-    # analyze_url = f"{base_url}/analyze?host={website}&publish=off&all=done&fromCache={cache_param}"
+
     if use_cache:
-        # analyze_url = f"{base_url}/analyze?host={website}&publish=off&all=done&fromCache=on&maxAge=24"
         analyze_url = f"{base_url}/analyze?host={website}&all=done&publish=off&fromCache=on&maxAge=24"
     else:
         analyze_url = f"{base_url}/analyze?host={website}&all=done&publish=off&fromCache=off"
@@ -864,8 +874,8 @@ def check_ssl_certificate_validity(website):
 # check if the website is reachable over HTTP and if so, if requests are redirected to HTTPS
 #
 def check_http_redirected_to_https(website: str) -> bool:
-    debug_print(f"=== check_http_redirected_to_https {website}")
-    outfile.write("\n===========Check HTTP redirect to HTTPS\n")
+    debug_print(f"=== check only accessible through HTTPS: {website}")
+    outfile.write("\n===========Check for only accessible through HTTPS\n")
 
     httperr = False
     check_redirect = 0
@@ -993,14 +1003,14 @@ def check_debug_in_headers(website):
     debug_print(f"=== check_debug_in_headers {website}")
     outfile.write("\n===========Check for the word \"debug\" in HTTP header info\n")
 
-    prefix = "https"
+    url = (f"https://{website}")
     try:
-        response = requests.get(website, timeout = 3)
+        response = requests.get(url, timeout = 3)
         headers = response.headers
         for key, value in headers.items():
             if 'debug' in key.lower() or 'debug' in value.lower():
-                debug_print(f"'debug' found in {key} header for {prefix}{website}")
-                outfile.write(f"'debug' found in {key} header for {prefix}{website}")
+                debug_print(f"'debug' found in {key} header for {url}")
+                outfile.write(f"'debug' found in {key} header for {url}")
                 try:
                     c.execute("UPDATE website_checks SET debug = ? WHERE websites = ?", (0, website))
                     conn.commit()
@@ -1010,7 +1020,7 @@ def check_debug_in_headers(website):
                 return False
 
     except requests.exceptions.RequestException as e:
-        debug_print(f"Error while connecting to {prefix}{website}: {str(e)}")
+        debug_print(f"Error while connecting to {url}: {str(e)}")
 
     debug_print("debug not found in HTTP headers")
     outfile.write("debug not found in HTTP headers")
@@ -1075,7 +1085,7 @@ for website in inlines:
             check_ssl_certificate_validity(website)
             check_http_redirected_to_https(website)
             check_remants(website)
-            check_debug_in_headers(url)
+            check_debug_in_headers(website)
 
             if testssl:
                 check_testssl(website)

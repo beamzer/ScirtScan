@@ -8,7 +8,7 @@ import re
 from datetime import date
 
 # for this to display and work (sort) properly, sort.js and styles.css need to be in the directory above index.html
-version = "v2.1g, 20231009"
+version = "v2.1h, 20231009"
 
 html_table = ""
 
@@ -252,7 +252,7 @@ html_page = """
     <th onclick="sortTable(1)">https<div class="explanation">click to sort</div></th>
     <th onclick="sortGrades(2)">grade<div class="explanation">click to sort</div></th>
     <th onclick="sortTable(3)">grade<br>check<div class="explanation">click to sort</div></th>
-    <th onclick="sortTable(4)">HTTPS<br>redirect<div class="explanation">click to sort</div></th>
+    <th onclick="sortTable(4)">HTTPS<br>only<div class="explanation">click to sort</div></th>
     <th onclick="sortTable(5)">cert<br>validity<div class="explanation">click to sort</div></th>
     <th onclick="sortTable(6)">HSTS<br>(days)<div class="explanation">click to sort</div></th>
     <th onclick="sortTable(7)">security<br>.txt<div class="explanation">click to sort</div></th>

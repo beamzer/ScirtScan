@@ -842,11 +842,12 @@ def check_ssl_certificate_validity(website):
 
         # Get the expiration date of the certificate
         cert_expiration = datetime.datetime.strptime(cert_info['notAfter'], '%b %d %H:%M:%S %Y %Z')
+        cert_expiration = cert_expiration.astimezone(datetime.timezone.utc)     # All certificates use UTC time    
 
         # Get the issuer information of the certificate [not used right now 20230701]
         cert_ca = cert_info['issuer']
 
-        current_time = datetime.datetime.utcnow()
+        current_time = datetime.datetime.now(datetime.timezone.utc)
         days_left = (cert_expiration - current_time).days
         if days_left > 29:
             outfile.write("OK\n")

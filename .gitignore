@@ -1,0 +1,28 @@
+# Please enter files and folders to be ignored by git. Lines starting
+#
+# with '#' or blank lines will be ignored.
+# Standard glob patterns work, and will be applied recursively throughout the entire working tree.
+# You can start patterns with a forward slash (/) to avoid recursivity.
+# You can end patterns with a forward slash (/) to specify a directory.
+# You can negate a pattern by starting it with an exclamation point (!).
+#
+# it is also possible to have additional .gitignore files in subdirectories. 
+# The rules in these nested 
+#
+# /TODO        ignore folder TODO
+# TODO/        ignore file TODO
+# doc/*.txt    ignore doc/notes.txt, but not doc/server/arch.txt
+# doc/**/*.pdf ignore all .pdf files in folder doc subfolders
+#
+# documentation at: https://git-scm.com/docs/gitignore
+# Samples at: https://github.com/github/gitignore
+
+# Virtual environments
+.venv/
+venv/
+
+# Python cache
+__pycache__
+
+# Scirtscan resultfiles
+/[0-9]*

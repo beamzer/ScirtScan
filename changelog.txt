@@ -1,6 +1,6 @@
 Changelog for ScirtScan
 
-v3.x, under consideration
+v3.1, under consideration
 	* config file to read specific values (e.g. CERT name in UserAgent)
 	and specify which checks should be done and which shouldn't
 	* maybe facilitate the upload of a new list of websites to scan
@@ -12,12 +12,16 @@ v3.x, under consideration
 	has failed for a website between consecutive checks
 	* will look into an option to specify primary websites (e.g.  www.company.tld ) 
 	and have those shown first in the dashboard webpage
-
-v2.5, upcoming
 	* finding open directories in the website under test
 	(this was on the requirement list from day one, just need to find a
 	reliable method to do this)
 
+v3.0, 20240701
+	* major code rewrite, all checks are now seperate files
+	* the detailed log per site has been improved with links to errorpage
+	and sslscan details, so the information is more conscise
+	* version checks are improved
+	
 v2.2, 20231112
 	* SSLlabs checks run now multithreaded to speed things up
 	* check for HTTP->HTTPS redirect also accepts no HTTP service as OK

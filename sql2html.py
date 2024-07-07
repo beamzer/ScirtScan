@@ -8,7 +8,7 @@ import re
 from datetime import date
 
 # for this to display and work (sort) properly, sort.js and styles.css need to be in the directory above index.html
-version = "v2.1h, 20231009"
+version = "v2.1i, 20240707"
 
 html_table = ""
 
@@ -53,19 +53,19 @@ except sqlite3.Error as e:
 # Define the HTML table headers as a list, in the order they should appear on the webpage
 table_headers = ['website',
                  'https',
-                 'grade', 
+                 'grade',
                  'grade<br>check',
                  'HTTPS<br>redirect',
                  'cert<br>validity',
                  'HSTS<br>(days)',
-                 'headers', 
-                 'security<br>.txt', 
-                 'robots<br>.txt', 
-                 'version', 
-                 'error', 
+                 'headers',
+                 'security<br>.txt',
+                 'robots<br>.txt',
+                 'version',
+                 'error',
                  'remnants',
                  'debug',
-                 'check date']
+                 'detailed log']
 
 # Using a loop to construct the header row
 count=0
@@ -119,10 +119,10 @@ for row in result:
     debug = row[11]
     head_check = row[12]
     date_check = row[13]
-        
+
     debug and print(date_check, website, https_check, grad_check, grade, redirect_check, cert_valid, hsts, security_txt, vers_check, err_check, remnants, debug, head_check)
- 
-    debugfile = f'{website}.txt'
+
+    debugfile = f'{website}.html'
     html_table += f'<tr><td><a class="check" href=https://{website}>{website}</a></td>'
 
     if https_check == 1:
@@ -180,7 +180,7 @@ for row in result:
         html_table += f'<td class="red">&#10006;</td>'
     else:
         html_table += f'<td class="orange"><b>&quest;</b></td>'
-           
+
     # robo_url = f'<a class="check" href="https://{website}/robots.txt">'
     # if robo_check == 1:
     #     html_table += f'<td class="green">{robo_url}&#x2705;</a></td>'
@@ -252,7 +252,7 @@ html_page = """
     <th onclick="sortTable(1)">https<div class="explanation">click to sort</div></th>
     <th onclick="sortGrades(2)">grade<div class="explanation">click to sort</div></th>
     <th onclick="sortTable(3)">grade<br>check<div class="explanation">click to sort</div></th>
-    <th onclick="sortTable(4)">HTTPS<br>only<div class="explanation">click to sort</div></th>
+    <th onclick="sortTable(4)">HTTPS<br>redirect<div class="explanation">click to sort</div></th>
     <th onclick="sortTable(5)">cert<br>validity<div class="explanation">click to sort</div></th>
     <th onclick="sortTable(6)">HSTS<br>(days)<div class="explanation">click to sort</div></th>
     <th onclick="sortTable(7)">security<br>.txt<div class="explanation">click to sort</div></th>
@@ -261,7 +261,7 @@ html_page = """
     <th onclick="sortTable(10)">remnants<div class="explanation">click to sort</div></th>
     <th onclick="sortTable(11)">debug<div class="explanation">click to sort</div></th>
     <th onclick="sortTable(12)">headers<div class="explanation">click to sort</div></th>
-    <th onclick="sortTable(13)">check date<div class="explanation">click to sort</div></th>
+    <th onclick="sortTable(13)">detailed log<div class="explanation">click to sort</div></th>
     </tr>
   </thead>
   <tbody>
@@ -271,7 +271,7 @@ html_page = """
   <br />
   This overview is generated with: <a href="https://github.com/beamzer/ScirtScan">https://github.com/beamzer/ScirtScan</a><br /><br />
   Clicks on table headers will result in sorting or reverse sorting on that column content <br />
-  &#187; Click on the check date in the far right column to see the detailed logs for that website<br />
+  &#187; Click on the date in the detailed log column to see the detailed logs for that website<br />
   In the security.txt column clicks on green checkbox will show the contents of that URL <br />
   Clicking in the robots.txt column on the checkmarks will try to open that URL<br />
   Click here for a: <a href="website_checks.xlsx">Excel file with the contents of this table</a><br />

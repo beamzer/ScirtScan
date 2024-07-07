@@ -8,7 +8,7 @@ from datetime import date
 import openpyxl
 from openpyxl.styles import Font, PatternFill
 
-version = "v2.1c, 20230702"
+version = "v2.1d, 20240707"
 
 today = date.today()
 dir = today.strftime("%Y%m%d")
@@ -64,7 +64,7 @@ table_headers = ['website',
                  'error', 
                  'remnants',
                  'debug',
-                 'check date']
+                 'detailed log']
 
 # Query the table structure from the meta table
 c.execute("SELECT structure FROM meta")

@@ -1,6 +1,6 @@
 ###########################################################################################################
-# SSL/TLS Certificate Check with help from ChatGPT: https://sharegpt.com/c/xHQQv9k
-# 20240521
+# SSL/TLS Certificate Check 
+# 20240707
 ###########################################################################################################
 import ssl
 import socket
@@ -38,7 +38,7 @@ def check_ssl_certificate_validity(website, outfile, logger):
         # Get the issuer information of the certificate
         cert_ca = cert_info['issuer']
 
-        current_time = datetime.datetime.utcnow()
+        current_time = datetime.datetime.now(datetime.timezone.utc)
         days_left = (cert_expiration - current_time).days
         outfile.write(f"certificate expiration: {cert_expiration}\n")
         outfile.write(f"time of check (utc)   : {current_time}\n")

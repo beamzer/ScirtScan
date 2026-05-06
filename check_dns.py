@@ -1,79 +1,77 @@
-###########################################################################################################
-# if the website name doesn't resolve we can skip the other checks
-# this check is only for logging purposes and is not visible in the dashboard overview
-# 20240521
-###########################################################################################################
+"""DNS check: must succeed before any other check is attempted."""
+from __future__ import annotations
+
+import logging
+
+import dns.exception
 import dns.resolver
-def check_dns(website, outfile, logger):
-    """
-    Args:
-    website (str): The website being checked.
-    outfile (file object): The file to write output to.
-    logger (function pointer): Function to print debug information.
-    """
 
-    logger(f"=== check_dns")
+from scirt.check import CheckContext, CheckResult
 
-    try:       
-        outfile.write("\n===========DNS Check\n")
+log = logging.getLogger("scirtscan.check.dns")
+
+
+def _resolve_optional(website: str, rtype: str, label: str, outfile, missing_msg: str) -> None:
+    try:
+        for answer in dns.resolver.resolve(website, rtype):
+            if rtype == "TXT":
+                for txt_string in answer.strings:
+                    text = txt_string.decode("utf-8", errors="replace")
+                    log.debug("%s: %s", label, text)
+                    outfile.write(f"{label}: {text}\n")
+            elif rtype == "CNAME":
+                target = answer.target.to_text()
+                log.debug("%s: %s", label, target)
+                outfile.write(f"{label}: {target}\n")
+            elif rtype == "MX":
+                exchange = answer.exchange.to_text()
+                log.debug("%s: %s", label, exchange)
+                outfile.write(f"{label}: {exchange}\n")
+            else:
+                log.debug("%s", answer.address)
+                outfile.write(f"{answer.address}\n")
+    except dns.resolver.NoAnswer:
+        log.debug(missing_msg)
+        outfile.write(missing_msg + "\n")
+
+
+class DNSCheck:
+    name = "dns"
+
+    def run(self, ctx: CheckContext) -> CheckResult:
+        log.debug("=== dns")
+        ctx.outfile.write("\n===========DNS Check\n")
 
         try:
-            ipv4_answers = dns.resolver.resolve(website, 'A')  # check IPv4 addresses
-            for answer in ipv4_answers:
-                logger(answer.address)
-                outfile.write(f"{answer.address} \n")
-
-            try:
-                ipv6_answers = dns.resolver.resolve(website, 'AAAA')  # check IPv6 addresses
-                for answer in ipv6_answers:
-                    logger(answer.address)
-                    outfile.write(answer.address + "\n")
-            except dns.resolver.NoAnswer:
-                logger("no IPv6 addresses")
-                outfile.write("no IPv6 addresses\n")
-
-            try:
-                cname_answers = dns.resolver.resolve(website, 'CNAME')  # check CNAMEs (aliases)
-                for answer in cname_answers:
-                    logger(f"cname: {answer.target.to_text()}")
-                    outfile.write("cname: " + answer.target.to_text() + "\n")
-            except dns.resolver.NoAnswer:
-                logger("no CNAMEs")
-                outfile.write("no CNAMEs\n")
-
-            try:
-                mx_answers = dns.resolver.resolve(website, 'MX')  # check MX (mail exchange) records
-                for answer in mx_answers:
-                    logger(f"mx: {answer.exchange.to_text()}")
-                    outfile.write("mx: " + answer.exchange.to_text() + "\n")
-            except dns.resolver.NoAnswer:
-                logger("no MX records")
-                outfile.write("no MX records\n")
-
-            try:
-                txt_answers = dns.resolver.resolve(website, 'TXT')  # check for TXT (text) records
-                for answer in txt_answers:
-                    for txt_string in answer.strings:
-                        logger(f"TXT: {txt_string}")
-                        outfile.write("TXT: " + txt_string.decode('utf-8') + "\n")
-            except dns.resolver.NoAnswer:
-                logger("no TXT records")
-                outfile.write("no TXT records\n")
-
-        except dns.resolver.NoNameservers as e:
-            logger(f"DNS lookup for {website} failed with SERVFAIL")
-            outfile.write(f"DNS lookup for {website} failed with SERVFAIL")
-            return False
+            for answer in dns.resolver.resolve(ctx.website, "A"):
+                log.debug("%s", answer.address)
+                ctx.outfile.write(f"{answer.address}\n")
+        except dns.resolver.NoNameservers:
+            msg = f"DNS lookup for {ctx.website} failed with SERVFAIL"
+            log.warning(msg)
+            ctx.outfile.write(msg + "\n")
+            return CheckResult(gate_passed=False)
         except dns.resolver.NXDOMAIN:
-            logger(f"NXDOMAIN; Website {website} not found")
-            outfile.write(f"NXDOMAIN; Website {website} not found")
-            return False
+            msg = f"NXDOMAIN; Website {ctx.website} not found"
+            log.warning(msg)
+            ctx.outfile.write(msg + "\n")
+            return CheckResult(gate_passed=False)
         except dns.resolver.LifetimeTimeout as e:
-            print(f"DNS resolution for {website} failed due to lifetime timeout.")
-            print(f"Error details: {e}")
-            return False
+            msg = f"DNS resolution for {ctx.website} timed out: {e}"
+            log.warning(msg)
+            ctx.outfile.write(msg + "\n")
+            return CheckResult(gate_passed=False)
+        except dns.exception.DNSException as e:
+            log.error("DNS error for %s: %s", ctx.website, e)
+            ctx.outfile.write(f"DNS error: {e}\n")
+            return CheckResult(gate_passed=False)
 
-    except Exception as e:
-        print(f"check_dns; an error occurred: {e}")
+        _resolve_optional(ctx.website, "AAAA", "ipv6", ctx.outfile, "no IPv6 addresses")
+        _resolve_optional(ctx.website, "CNAME", "cname", ctx.outfile, "no CNAMEs")
+        _resolve_optional(ctx.website, "MX", "mx", ctx.outfile, "no MX records")
+        _resolve_optional(ctx.website, "TXT", "TXT", ctx.outfile, "no TXT records")
 
-    return True
+        return CheckResult(gate_passed=True)
+
+
+check = DNSCheck()

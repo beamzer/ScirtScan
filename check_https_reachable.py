@@ -1,44 +1,40 @@
-###########################################################################################################
-# Check if the website is reachable with HTTPS
-# 20240521
-###########################################################################################################
+"""Check whether the site is reachable over HTTPS. Gates further HTTP-based checks."""
+from __future__ import annotations
+
+import logging
+
 import requests
 
-def check_https_reachable(website, url, outfile, logger, myheaders):
-    """
-    Args:
-    website (str): The website being checked.
-    url (str): The URL to check.
-    outfile (file object): The file to write output to.
-    logger (function pointer): to function printing debug information
-    myheaders (dict): The headers to send with the request.
-    """
-    
-    logger(f"=== check_https_reachable")
-    outfile.write(f'\n===========HTTPS reachable check\n')
-    try:
-        response = requests.get(url, headers = myheaders, timeout=5)
-        response.raise_for_status()  # If the response was successful, no Exception will be raised
-        logger(f"Response Code: {response.status_code}")
-        outfile.write(f"Response Code: {response.status_code}")
+from scirt.check import CheckContext, CheckResult
 
-    except requests.HTTPError as e:
-        logger(f"Website is reachable over HTTPS, but Response Code = {e.response.status_code}")
-        outfile.write(f"Response is {e}")
-        # HTTP 4xx or 5xx means a working HTTPS connection, so we don't exit here
+log = logging.getLogger("scirtscan.check.https_reachable")
 
-    except (requests.ConnectionError, requests.Timeout, requests.TooManyRedirects) as e:
-        print(f"{website} is unreachable over HTTPS")
-        if isinstance(e, requests.ConnectionError):
-            logger("ConnectionError: Failed to establish a connection")
-            outfile.write(f"ConnectionError: Failed to establish a connection, error msg:\n{e}")
-        elif isinstance(e, requests.Timeout):
-            logger("Timeout: The request timed out")
-            outfile.write(f"Timeout: The request timed out, error msg:\n{e}")
-        elif isinstance(e, requests.TooManyRedirects):
-            logger("TooManyRedirects: The request exceeded the configured number of maximum redirections")
-            outfile.write(f"TooManyRedirects: The request exceeded the configured number of maximum redirections, error msg:\n{e}")
 
-        return 0
+class HttpsReachableCheck:
+    name = "https_reachable"
 
-    return 1
+    def run(self, ctx: CheckContext) -> CheckResult:
+        log.debug("=== https_reachable")
+        ctx.outfile.write("\n===========HTTPS reachable check\n")
+        try:
+            response = ctx.http.get(ctx.url)
+            response.raise_for_status()
+            log.debug("Response Code: %s", response.status_code)
+            ctx.outfile.write(f"Response Code: {response.status_code}")
+            return CheckResult(columns={"https_reachable": 1}, gate_passed=True)
+        except requests.exceptions.HTTPError as e:
+            # 4xx/5xx still proves HTTPS is reachable.
+            log.debug("HTTPS reachable but error code: %s", e.response.status_code)
+            ctx.outfile.write(f"Response is {e}")
+            return CheckResult(columns={"https_reachable": 1}, gate_passed=True)
+        except (
+            requests.exceptions.ConnectionError,
+            requests.exceptions.Timeout,
+            requests.exceptions.TooManyRedirects,
+        ) as e:
+            log.warning("%s unreachable over HTTPS: %s", ctx.website, type(e).__name__)
+            ctx.outfile.write(f"{type(e).__name__}: {e}")
+            return CheckResult(columns={"https_reachable": 0}, gate_passed=False)
+
+
+check = HttpsReachableCheck()

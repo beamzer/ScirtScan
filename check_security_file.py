@@ -1,38 +1,39 @@
-###########################################################################################################
-# CVD (Coordinated Vulnerability Disclosure) requires security contact information to be present on this URL
-# 20240521
-###########################################################################################################
-import requests
+"""Check for /.well-known/security.txt (CVD contact)."""
+from __future__ import annotations
+
+import logging
 from pprint import pformat
 
-def check_security_file(website, url, outfile, logger, myheaders):
-    """
-    Args:
-    website (str): The website being checked.
-    url (str): The URL to check.
-    outfile (file object): The file to write output to.
-    logger (function pointer): Function to print debug information.
-    myheaders (dict): The headers to send with the request.
-    """
-    
-    logger(f"=== check_security_file")
-    outfile.write("\n===========Security.txt Check\n")
+import requests
 
-    security_file = 0
-    try:
-        response = requests.get(f"{url}/.well-known/security.txt", headers=myheaders)
-        if response.status_code >= 200 and response.status_code < 300 and response.headers['Content-Type'].startswith("text/plain"):
-            security_file = 1
-            outfile.write("OK\n")
-            outfile.write(response.text)
-        else:
-            outfile.write("NOK\n")
-            headers_formatted = pformat(dict(response.headers))
-            outfile.write(f"HTTP response code: {response.status_code}\n")
-            outfile.write(f"{headers_formatted}\n")
-            
-    except requests.exceptions.RequestException as e:
-        print(f"An error occurred while checking the security file: {e}")
-        outfile.write(f"An error occurred while checking the security file: {e}\n")
+from scirt.check import CheckContext, CheckResult
+from scirt.http import safe_content_type
 
-    return security_file
+log = logging.getLogger("scirtscan.check.security_file")
+
+
+class SecurityFileCheck:
+    name = "security_file"
+
+    def run(self, ctx: CheckContext) -> CheckResult:
+        log.debug("=== security_file")
+        ctx.outfile.write("\n===========Security.txt Check\n")
+        try:
+            response = ctx.http.get(f"{ctx.url}/.well-known/security.txt")
+        except requests.RequestException as e:
+            log.error("error fetching security.txt for %s: %s", ctx.website, e)
+            ctx.outfile.write(f"Error: {e}\n")
+            return CheckResult(columns={"security_txt": 0})
+
+        if 200 <= response.status_code < 300 and safe_content_type(response).startswith("text/plain"):
+            ctx.outfile.write("OK\n")
+            ctx.outfile.write(response.text)
+            return CheckResult(columns={"security_txt": 1})
+
+        ctx.outfile.write("NOK\n")
+        ctx.outfile.write(f"HTTP response code: {response.status_code}\n")
+        ctx.outfile.write(f"{pformat(dict(response.headers))}\n")
+        return CheckResult(columns={"security_txt": 0})
+
+
+check = SecurityFileCheck()

@@ -1,242 +1,123 @@
 #!/usr/bin/env python3
-import sqlite3
+"""Render website_checks into a sortable index.html."""
+from __future__ import annotations
+
 import argparse
 import os
 import sys
-import datetime
-import re
 from datetime import date
+from pathlib import Path
 
-# for this to display and work (sort) properly, sort.js and styles.css need to be in the directory above index.html
-version = "v2.1i, 20240707"
+from scirt.exporters.common import db_columns, fetch_rows, open_db
 
-html_table = ""
+VERSION = "v3.0"
 
-today = date.today()
-dir = today.strftime("%Y%m%d")
+THIS_DIR = Path(__file__).resolve().parent
 
-parser = argparse.ArgumentParser(description='creates an index.html page from the sqlite database websites.db')
-parser.add_argument('-d','--debug', action='store_true', help='print debug messages to stderr')
-parser.add_argument('-p', '--path', type=str, help=f'The directory path, if not given will assume the directory with todays date: {dir}')
-parser.add_argument('-v','--version', action='store_true', help='show version info and exit')
-
-args = parser.parse_args()
-debug = args.debug
-
-if args.version:
-    sys.exit(f"version: {version}")
-
-# If the path argument is provided, use it as the directory path
-if args.path:
-    directory_path = args.path
-else:
-    # If the path argument is not provided, set the directory name to today's date
-    directory_path = today.strftime('%Y%m%d')
-
-debug and print("debug output activated")
-debug and print(f"Will read from, and store into directory: {directory_path}")
-
-# Check if the directory exists
-if not os.path.exists(directory_path):
-    print(f"The directory {directory_path} does not exist.")
-    exit()
-
-# Connect to the SQLite database in the directory
-try:
-    database = os.path.join(directory_path, 'websites.db')
-    conn = sqlite3.connect(database)
-    debug and print(f"Connected to database {database}.")
-    c = conn.cursor()
-except sqlite3.Error as e:
-    sys.exit(f"Error connecting to database {database}: {e}")
-
-# Define the HTML table headers as a list, in the order they should appear on the webpage
-table_headers = ['website',
-                 'https',
-                 'grade',
-                 'grade<br>check',
-                 'HTTPS<br>redirect',
-                 'cert<br>validity',
-                 'HSTS<br>(days)',
-                 'headers',
-                 'security<br>.txt',
-                 'robots<br>.txt',
-                 'version',
-                 'error',
-                 'remnants',
-                 'debug',
-                 'detailed log']
-
-# Using a loop to construct the header row
-count=0
-# header_row = '<tr style="text-align: right;">'
-# for header in table_headers:
-#         header_row += f'<th onclick="sortTable({count})">{header}'
-#         header_row += '<div class="explanation">click to sort</div></th>'
-#         count += 1
-# header_row += '</tr>'
+TABLE_HEADERS = [
+    ("website", "sortTable", 0),
+    ("https", "sortTable", 1),
+    ("grade", "sortGrades", 2),
+    ("grade<br>check", "sortTable", 3),
+    ("HTTPS<br>redirect", "sortTable", 4),
+    ("cert<br>validity", "sortTable", 5),
+    ("HSTS<br>(days)", "sortTable", 6),
+    ("security<br>.txt", "sortTable", 7),
+    ("version", "sortTable", 8),
+    ("error", "sortTable", 9),
+    ("remnants", "sortTable", 10),
+    ("debug", "sortTable", 11),
+    ("headers", "sortTable", 12),
+    ("detailed log", "sortTable", 13),
+]
 
 
-# Query the table structure from the meta table
-c.execute("SELECT structure FROM meta")
-result = c.fetchone()
+def _bool_cell(value: object) -> str:
+    if value == 1:
+        return '<td class="green">&#x2705;</td>'
+    if value == 0:
+        return '<td class="red">&#10006;</td>'
+    return '<td class="orange"><b>&quest;</b></td>'
 
-if result:
-    table_structure = result[0]
-    debug and print(f"Table structure: {table_structure}")
 
-    # Extract column names from the table structure
-    column_pattern = re.compile(r'(\w+)\s+[\w\(\)]+(,)?')
-    columns = [match.group(1) for match in column_pattern.finditer(table_structure) if match.group(1) != "IF"]
-
-    # Build the SQL query
-    sql_query = "SELECT {} FROM website_checks".format(", ".join(columns))
-    debug and print(f"sql_query = {sql_query}")
-else:
-    sys.exit(f"unable to read database structure from {database}")
-
-cs = conn.cursor()
-try:
-    cs.execute(sql_query)
-    result = cs.fetchall()
-except sqlite3.Error as error:
-    sys.exit(f"Failed to fetch data from {database}", error)
-
-for row in result:
-    debug and print(row)
-    website = row[0]
-    https_check = row[1]
-    grade = row[2]
-    grad_check = row[3]
-    redirect_check = row[4]
-    cert_valid = row[5]
-    hsts = row[6]
-    security_txt = row[7]
-#    robo_check = row[9]
-    vers_check = row[8]
-    err_check  = row[9]
-    remnants = row[10]
-    debug = row[11]
-    head_check = row[12]
-    date_check = row[13]
-
-    debug and print(date_check, website, https_check, grad_check, grade, redirect_check, cert_valid, hsts, security_txt, vers_check, err_check, remnants, debug, head_check)
-
-    debugfile = f'{website}.html'
-    html_table += f'<tr><td><a class="check" href=https://{website}>{website}</a></td>'
-
-    if https_check == 1:
-        html_table += '<td class="green">&#x2705;</td>'
-    elif https_check == 0:
-        html_table += '<td class="red">&#10006;</td>'
-    else:
-        html_table += '<td class="orange"><b>&quest;</b></td>'
-
+def _grade_cell(grade: object, grad_check: object, website: str) -> str:
     if grad_check == 1:
-        html_table += '<td class="green">'
-        vtgradelink = f'<a href="https://www.ssllabs.com/ssltest/analyze.html?d={website}&hideResults=on">{grade}</a>'
+        klass = "green"
     elif grad_check == 0:
-        html_table += '<td class="red">'
-        vtgradelink = f'<a href="https://www.ssllabs.com/ssltest/analyze.html?d={website}&hideResults=on">{grade}</a>'
+        klass = "red"
     else:
-        html_table += '<td class="orange">'
-        vtgradelink = '<b>&quest;</b>'
-    html_table += vtgradelink + "</td>"
-
-    if grad_check == 1:
-        html_table += f'<td class="green">&#x2705;</td>'
-    elif grad_check == 0:
-        html_table += f'<td class="red">&#10006;</td>'
+        klass = "orange"
+    if grad_check in (0, 1):
+        link = f'<a href="https://www.ssllabs.com/ssltest/analyze.html?d={website}&hideResults=on">{grade}</a>'
     else:
-        html_table += f'<td class="orange"><b>&quest;</b></td>'
+        link = '<b>&quest;</b>'
+    return f'<td class="{klass}">{link}</td>'
 
-    if redirect_check == 1:
-        html_table += f'<td class="green">&#x2705;</td>'
-    elif redirect_check == 0:
-        html_table += f'<td class="red">&#10006;</td>'
-    else:
-        html_table += f'<td class="orange"><b>&quest;</b></td>'
 
+def _cert_cell(cert_valid: object) -> str:
     if cert_valid is None:
-        html_table += f'<td class="orange"><b>&quest;</b></td>'
-    elif cert_valid > 29:
-        html_table += f'<td class="green">{cert_valid}</td>'
-    elif cert_valid < 30:
-        html_table += f'<td class="red">{cert_valid}</td>'
-    else:
-        html_table += f'<td class="orange"><b>&quest;</b></td>'
+        return '<td class="orange"><b>&quest;</b></td>'
+    if cert_valid > 29:
+        return f'<td class="green">{cert_valid}</td>'
+    return f'<td class="red">{cert_valid}</td>'
 
+
+def _hsts_cell(hsts: object) -> str:
     if hsts is None:
-        html_table += f'<td class="red">&#10006;</td>'
-    elif hsts >= 365:
-        html_table += f'<td class="green">{hsts}</td>'
-    else:
-        html_table += f'<td class="red">{hsts}</td>'
+        return '<td class="red">&#10006;</td>'
+    if hsts >= 365:
+        return f'<td class="green">{hsts}</td>'
+    return f'<td class="red">{hsts}</td>'
 
-    if security_txt == 1:
-        sectxtlink = f'<a class="check" href="https://{website}/.well-known/security.txt">&#x2705;</a>'
-        html_table += f'<td class="green">{sectxtlink}</td>'
-    elif security_txt == 0:
-        html_table += f'<td class="red">&#10006;</td>'
-    else:
-        html_table += f'<td class="orange"><b>&quest;</b></td>'
 
-    # robo_url = f'<a class="check" href="https://{website}/robots.txt">'
-    # if robo_check == 1:
-    #     html_table += f'<td class="green">{robo_url}&#x2705;</a></td>'
-    # elif robo_check == 0:
-    #     html_table += f'<td class="red">{robo_url}&#10006;</a></td>'
-    # else:
-    #     html_table += f'<td class="orange">{robo_url}<b>&quest;</b></a></td>'
+def _security_cell(value: object, website: str) -> str:
+    if value == 1:
+        link = f'<a class="check" href="https://{website}/.well-known/security.txt">&#x2705;</a>'
+        return f'<td class="green">{link}</td>'
+    if value == 0:
+        return '<td class="red">&#10006;</td>'
+    return '<td class="orange"><b>&quest;</b></td>'
 
-    if vers_check == 1:
-        html_table += f'<td class="green">&#x2705;</td>'
-    elif vers_check == 0:
-        html_table += f'<td class="red">&#10006;</td>'
-    else:
-        html_table += f'<td class="orange"><b>&quest;</b></td>'
 
-    if err_check == 1:
-        html_table += f'<td class="green">&#x2705;</td>'
-    elif err_check == 0:
-        html_table += f'<td class="red">&#10006;</td>'
-    else:
-        html_table += f'<td class="orange"><b>&quest;</b></td>'
+def render_row(row: tuple) -> str:
+    (
+        website,
+        https_check,
+        grade,
+        grad_check,
+        redirect_check,
+        cert_valid,
+        hsts,
+        security_txt,
+        vers_check,
+        _robots_check,  # not currently shown in the rendered table
+        err_check,
+        remnants,
+        debug_value,
+        head_check,
+        date_check,
+    ) = row
 
-    if remnants == 1:
-        html_table += f'<td class="green">&#x2705;</td>'
-    elif remnants == 0:
-        html_table += f'<td class="red">&#10006;</td>'
-    else:
-        html_table += f'<td class="orange"><b>&quest;</b></td>'
+    cells = [
+        f'<td><a class="check" href=https://{website}>{website}</a></td>',
+        _bool_cell(https_check),
+        _grade_cell(grade, grad_check, str(website)),
+        _bool_cell(grad_check),
+        _bool_cell(redirect_check),
+        _cert_cell(cert_valid),
+        _hsts_cell(hsts),
+        _security_cell(security_txt, str(website)),
+        _bool_cell(vers_check),
+        _bool_cell(err_check),
+        _bool_cell(remnants),
+        _bool_cell(debug_value),
+        _bool_cell(head_check),
+        f'<td><a class="check" href={website}.html>{date_check}</a></td>',
+    ]
+    return f"<tr>{''.join(cells)}</tr>\n"
 
-    if debug == 1:
-        html_table += f'<td class="green">&#x2705;</td>'
-    elif debug == 0:
-        html_table += f'<td class="red">&#10006;</td>'
-    else:
-        html_table += f'<td class="orange"><b>&quest;</b></td>'
 
-    if head_check == 1:
-        html_table += f'<td class="green">&#x2705;</td>'
-    elif head_check == 0:
-        html_table += f'<td class="black">&#10006;</td>'
-    else:
-        html_table += f'<td class="orange"><b>&quest;</b></td>'
-
-    html_table += f'<td><a class="check" href={debugfile}>{date_check}</td></tr>\n'
-
-# Close the connection to the database
-conn.close()
-
-with open('styles.css', 'r') as f:
-    css_styles = f.read()
-
-with open('sort.js', 'r') as f:
-    sort_js = f.read()
-
-# Create the complete HTML page, the {} below will be replaced with the content of the variables at the end
-html_page = """
+HTML_TEMPLATE = """\
 <!DOCTYPE html>
 <html>
 <head>
@@ -248,24 +129,11 @@ html_page = """
   <table border="1" class="dataframe mystyle" id="myTable">
   <thead>
     <tr style="text-align: right;">
-    <th onclick="sortTable(0)">website<div class="explanation">click to sort</div></th>
-    <th onclick="sortTable(1)">https<div class="explanation">click to sort</div></th>
-    <th onclick="sortGrades(2)">grade<div class="explanation">click to sort</div></th>
-    <th onclick="sortTable(3)">grade<br>check<div class="explanation">click to sort</div></th>
-    <th onclick="sortTable(4)">HTTPS<br>redirect<div class="explanation">click to sort</div></th>
-    <th onclick="sortTable(5)">cert<br>validity<div class="explanation">click to sort</div></th>
-    <th onclick="sortTable(6)">HSTS<br>(days)<div class="explanation">click to sort</div></th>
-    <th onclick="sortTable(7)">security<br>.txt<div class="explanation">click to sort</div></th>
-    <th onclick="sortTable(8)">version<div class="explanation">click to sort</div></th>
-    <th onclick="sortTable(9)">error<div class="explanation">click to sort</div></th>
-    <th onclick="sortTable(10)">remnants<div class="explanation">click to sort</div></th>
-    <th onclick="sortTable(11)">debug<div class="explanation">click to sort</div></th>
-    <th onclick="sortTable(12)">headers<div class="explanation">click to sort</div></th>
-    <th onclick="sortTable(13)">detailed log<div class="explanation">click to sort</div></th>
+{header_row}
     </tr>
   </thead>
   <tbody>
-    {}
+    {body}
   </tbody>
   </table>
   <br />
@@ -273,18 +141,55 @@ html_page = """
   Clicks on table headers will result in sorting or reverse sorting on that column content <br />
   &#187; Click on the date in the detailed log column to see the detailed logs for that website<br />
   In the security.txt column clicks on green checkbox will show the contents of that URL <br />
-  Clicking in the robots.txt column on the checkmarks will try to open that URL<br />
   Click here for a: <a href="website_checks.xlsx">Excel file with the contents of this table</a><br />
   Click here for a: <a href="debug.log">debug.log</a> unless scirtscan was run with --no_debugfile<br />
 </body>
 </html>
-""".format(html_table)
+"""
 
-myindex = directory_path + "/" + "index.html"
-try:
-    with open(myindex, 'w') as f:
-        f.write(html_page)
-except OSError as error:
-    print(error)
 
-print(f"HTML table written to {myindex}")
+def render_header_row() -> str:
+    return "\n".join(
+        f'    <th onclick="{fn}({idx})">{label}<div class="explanation">click to sort</div></th>'
+        for label, fn, idx in TABLE_HEADERS
+    )
+
+
+def main(argv: list[str] | None = None) -> None:
+    today = date.today().strftime("%Y%m%d")
+    parser = argparse.ArgumentParser(description="render website_checks as index.html")
+    parser.add_argument("-d", "--debug", action="store_true")
+    parser.add_argument(
+        "-p",
+        "--path",
+        type=str,
+        default=today,
+        help=f"directory containing websites.db (default: {today})",
+    )
+    parser.add_argument("-v", "--version", action="store_true")
+    args = parser.parse_args(argv)
+
+    if args.version:
+        print(f"version: {VERSION}")
+        return
+
+    if not os.path.exists(args.path):
+        sys.exit(f"directory {args.path} does not exist")
+
+    with open_db(args.path) as conn:
+        columns = db_columns(conn)
+        rows = fetch_rows(conn, columns)
+
+    body = "".join(render_row(r) for r in rows)
+    html = HTML_TEMPLATE.format(header_row=render_header_row(), body=body)
+
+    out = Path(args.path) / "index.html"
+    try:
+        out.write_text(html, encoding="utf-8")
+    except OSError as e:
+        sys.exit(f"failed to write {out}: {e}")
+    print(f"HTML table written to {out}")
+
+
+if __name__ == "__main__":
+    main()

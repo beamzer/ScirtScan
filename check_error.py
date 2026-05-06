@@ -1,50 +1,57 @@
-###########################################################################################################
-# the error check tries to verify that there is no product information or version numbers in the HTTP error page
-# production websites should serve a clean error page and test websites should nog be open from the Internet
-# 20240521
-###########################################################################################################
-import requests
-from bs4 import BeautifulSoup
+"""Probe a 404 page for product/version leakage in the response body."""
+from __future__ import annotations
+
+import logging
 import re
 
-def check_error(website, url, outfile, logger, myheaders):
-    """
-    Args:
-    website (str): The website being checked.
-    url (str): The URL to check.
-    outfile (file object): The file to write output to.
-    logger (function pointer): Function to print debug information.
-    myheaders (dict): The headers to send with the request.
-    """
-    
-    logger(f"=== error_check")
-    try:
-        my_url = url + "/sdfsffe978hjcf65"  # Random URL which will generate a 404 on the web server
-        response = requests.get(my_url, headers=myheaders, timeout=3)
-        html = response.text
-        soup = BeautifulSoup(html, "html.parser")
+import requests
+from bs4 import BeautifulSoup
 
-        # Check for databases, words, and version numbers
-        databases = re.findall(r'(Oracle|MySQL|SQL Server|PostgreSQL)', soup.get_text())
-        words = re.findall(r'\b(Apache|nginx|Php)\b', soup.get_text())
-        numbers = re.findall(r"\b\d+\.\b", soup.get_text())
+from scirt.check import CheckContext, CheckResult
+
+log = logging.getLogger("scirtscan.check.error")
+
+DB_RE = re.compile(r"(Oracle|MySQL|SQL Server|PostgreSQL)")
+WORD_RE = re.compile(r"\b(Apache|nginx|Php)\b")
+NUMBER_RE = re.compile(r"\b\d+\.\d+\b")
+
+
+class ErrorCheck:
+    name = "error"
+
+    def run(self, ctx: CheckContext) -> CheckResult:
+        log.debug("=== error")
+        ctx.outfile.write("\n===========Error Check\n")
+        try:
+            response = ctx.http.get(ctx.url + "/sdfsffe978hjcf65", timeout=3)
+        except requests.RequestException as e:
+            log.warning("failed to fetch error page for %s: %s", ctx.website, e)
+            return CheckResult(columns={"error_check": 0})
+
+        soup = BeautifulSoup(response.text, "html.parser")
+        text = soup.get_text()
+
+        databases = DB_RE.findall(text)
+        words = WORD_RE.findall(text)
+        numbers = NUMBER_RE.findall(text)
 
         check_error = 0
         if databases:
-            logger(f"err found db: {databases}")
+            log.info("error page leaks db: %s", databases)
         elif words:
-            logger(f"err found words: {words}")
+            log.info("error page leaks server words: %s", words)
         elif numbers:
-            logger(f"err found numbers: {numbers}")
+            log.info("error page leaks numbers: %s", numbers)
         else:
             check_error = 1
 
-        outfile.write("\n===========Error Check\n")
-        outfile.write(f"{'OK' if check_error == 1 else 'NOK'}")
-        # outfile.write(str(soup))
+        ctx.outfile.write("OK" if check_error else "NOK")
+        ctx.outfile.write(f"\n<a href=\"{ctx.website}-error.txt\">{ctx.website}-error.txt</a>\n")
 
-        return (check_error, str(soup))  # Return both check_error and the HTML soup
+        return CheckResult(
+            columns={"error_check": check_error},
+            extra_files={f"{ctx.website}-error.txt": str(soup)},
+        )
 
-    except requests.RequestException as e:
-        logger(f"Failed to fetch {url}: {str(e)}")
-        return (0, "")  # Returning 0 in case of request failures
+
+check = ErrorCheck()

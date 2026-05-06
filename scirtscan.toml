@@ -1,0 +1,22 @@
+# Default ScirtScan configuration.
+# Copy and edit this file before running scirtscan.py for the first time.
+
+[scan]
+# Identifies your CERT in the User-Agent. Replace this — empty/placeholder
+# values are scanned just like any other request and don't help admins know
+# who hit them.
+cert_name = "Your CERT here"
+
+# Default per-request HTTP timeout (seconds).
+default_timeout = 5.0
+
+# How many retry rounds to use against Qualys SSL Labs before giving up
+# on a website that won't grade.
+sslscore_max_retries = 10
+
+# Default number of websites to scan in parallel. Override with -p / --parallel.
+parallel_websites = 1
+
+[paths]
+# Path to a local testssl.sh binary, used when --testssl / --only_testssl is set.
+testssl = "/usr/local/bin/testssl.sh"

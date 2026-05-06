@@ -1,87 +1,93 @@
-###########################################################################################################
-# Check that certain security headers are present in the HTTP header
-# 20240521
-###########################################################################################################
-import requests
+"""Check that required HTTP security headers are present (HSTS, X-Frame-Options, etc.)."""
+from __future__ import annotations
+
+import logging
 from pprint import pformat
 
-def check_http_headers(website, url, outfile, logger, myheaders):
-    """
-    Args:
-    website (str): The website being checked.
-    url (str): The URL to check.
-    outfile (file object): The file to write output to.
-    logger (function pointer): to function printing debug information
-    myheaders (dict): The headers to send with the request.
-    """
+import requests
 
-    logger(f"=== check_http_headers")
-    outfile.write(f'\n===========HTTP Headers Check\n')
+from scirt.check import CheckContext, CheckResult
 
-    headers_to_check = {
-        "X-XSS-Protection",
-        "X-Frame-Options",
-        "X-Content-Type-Options",
-        "Strict-Transport-Security",
-        "Referrer-Policy"
-    }
+log = logging.getLogger("scirtscan.check.http_headers")
 
-    try:
-        response = requests.get(url, headers = myheaders, allow_redirects=True, timeout=5)
-    except requests.exceptions.RequestException as e:
-        print(f"Error connecting to {website}: {e}")
-        outfile.write(f"Error connecting to {website}: {e}\n")
-        return 0,0
+REQUIRED_HEADERS = {
+    "X-XSS-Protection",
+    "X-Frame-Options",
+    "X-Content-Type-Options",
+    "Strict-Transport-Security",
+    "Referrer-Policy",
+}
 
-    missing_headers = []
-    hsts_duration = None
-    hsts_duration_days = None
-    check_header = 1
+ONE_YEAR_SECONDS = 31_536_000
 
-    for header in headers_to_check:
-        outfile.write(f'checking presence of: {header} ')
-        logger(f"checking presence of: {header}")
-        if header in response.headers:
-            outfile.write('PRESENT\n')
-            if header == "Strict-Transport-Security":
-                # Sometimes there are multiple Strict-Transport-Security headers present
-                # RFC6797 states that only the first should be used
-                if hasattr(response.headers, 'get_all'):
-                    hsts_headers = response.headers.get_all('Strict-Transport-Security')
-                else:
-                    hsts_headers = response.headers.get('Strict-Transport-Security').split(',')
 
-                if len(hsts_headers) > 1:
-                    logger("ERROR: More than one Strict-Transport-Security header present")
-
-                if hsts_headers:
-                    hsts_value = hsts_headers[0]  # Get only the first occurrence
-                    hsts_parts = hsts_value.split(";")
-                    max_age = next((part for part in hsts_parts if "max-age" in part), None)
-                    if max_age:
-                        hsts_duration = int(max_age.split("=")[1].strip())
-                        logger(f"hsts_duration: {hsts_duration}")
-
-        else:
-            outfile.write('NOT PRESENT\n')
-            missing_headers.append(header)
-
-    if missing_headers:
-        outfile.write(f"ERR Missing headers for {website}: {', '.join(missing_headers)}\n")
-        check_header = 0
-
-    if hsts_duration is not None:
-        hsts_duration_days = int(hsts_duration / (24 * 3600))
-        if hsts_duration >= 31536000:
-            outfile.write(f"OK, {website} has HSTS value of at least one year: {hsts_duration_days} days\n")
-        else:
-            outfile.write(f"ERR, {website} HSTS value is LESS than one year: {hsts_duration_days} days\n")
-            check_header = 0
+def _hsts_max_age(headers) -> int | None:
+    if hasattr(headers, "get_all"):
+        hsts_headers = headers.get_all("Strict-Transport-Security")
     else:
-        outfile.write(f"ERR {website} is missing Strict-Transport-Security header\n")
-        check_header = 0
+        raw = headers.get("Strict-Transport-Security", "")
+        hsts_headers = raw.split(",") if raw else []
+    if not hsts_headers:
+        return None
+    if len(hsts_headers) > 1:
+        log.warning("more than one Strict-Transport-Security header present")
+    parts = hsts_headers[0].split(";")
+    max_age = next((p for p in parts if "max-age" in p), None)
+    if not max_age:
+        return None
+    try:
+        return int(max_age.split("=")[1].strip())
+    except (IndexError, ValueError):
+        return None
 
-    headers_formatted = pformat(dict(response.headers))
-    outfile.write(f'{headers_formatted}\n')
 
-    return check_header, hsts_duration_days
+class HttpHeadersCheck:
+    name = "http_headers"
+
+    def run(self, ctx: CheckContext) -> CheckResult:
+        log.debug("=== http_headers")
+        ctx.outfile.write("\n===========HTTP Headers Check\n")
+
+        try:
+            response = ctx.http.get(ctx.url)
+        except requests.exceptions.RequestException as e:
+            log.error("connection error to %s: %s", ctx.website, e)
+            ctx.outfile.write(f"Error connecting to {ctx.website}: {e}\n")
+            return CheckResult(columns={"headers_check": 0, "hsts": None})
+
+        missing = []
+        for header in REQUIRED_HEADERS:
+            present = header in response.headers
+            ctx.outfile.write(f"checking presence of: {header} {'PRESENT' if present else 'NOT PRESENT'}\n")
+            if not present:
+                missing.append(header)
+
+        check_header = 1
+        hsts_duration_days: int | None = None
+
+        if missing:
+            ctx.outfile.write(f"ERR Missing headers for {ctx.website}: {', '.join(missing)}\n")
+            check_header = 0
+
+        hsts_seconds = _hsts_max_age(response.headers)
+        if hsts_seconds is not None:
+            hsts_duration_days = hsts_seconds // (24 * 3600)
+            if hsts_seconds >= ONE_YEAR_SECONDS:
+                ctx.outfile.write(
+                    f"OK, {ctx.website} has HSTS value of at least one year: {hsts_duration_days} days\n"
+                )
+            else:
+                ctx.outfile.write(
+                    f"ERR, {ctx.website} HSTS value is LESS than one year: {hsts_duration_days} days\n"
+                )
+                check_header = 0
+        else:
+            ctx.outfile.write(f"ERR {ctx.website} is missing Strict-Transport-Security header\n")
+            check_header = 0
+
+        ctx.outfile.write(f"{pformat(dict(response.headers))}\n")
+
+        return CheckResult(columns={"headers_check": check_header, "hsts": hsts_duration_days})
+
+
+check = HttpHeadersCheck()

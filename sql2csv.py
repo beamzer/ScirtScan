@@ -1,33 +1,47 @@
 #!/usr/bin/env python3
-import sqlite3
+"""Dump the website_checks table to semicolon-delimited CSV on stdout."""
+from __future__ import annotations
+
 import argparse
+import csv
+import os
+import sys
+from datetime import date
 
-# Create argument parser
-parser = argparse.ArgumentParser(description='Output the contents of a SQLite database.')
-parser.add_argument('database', help='The SQLite database file to open')
+from scirt.exporters.common import db_columns, fetch_rows, open_db
 
-# Parse arguments
-args = parser.parse_args()
+VERSION = "v2.0"
 
-# Connect to the SQLite database
-connection = sqlite3.connect(args.database)
 
-# Create a cursor object
-cursor = connection.cursor()
+def main(argv: list[str] | None = None) -> None:
+    today = date.today().strftime("%Y%m%d")
+    parser = argparse.ArgumentParser(description="dump website_checks as CSV to stdout")
+    parser.add_argument("-d", "--debug", action="store_true")
+    parser.add_argument(
+        "-p",
+        "--path",
+        type=str,
+        default=today,
+        help=f"directory containing websites.db (default: {today})",
+    )
+    parser.add_argument("-v", "--version", action="store_true")
+    args = parser.parse_args(argv)
 
-# Execute the SQL statement
-cursor.execute("SELECT * FROM website_checks")
+    if args.version:
+        print(f"version: {VERSION}")
+        return
 
-# Print the column names as a header, separated by semicolons
-print(';'.join([column[0] for column in cursor.description]))
+    if not os.path.exists(args.path):
+        sys.exit(f"directory {args.path} does not exist")
 
-# Fetch all rows from the result of the SQL statement
-rows = cursor.fetchall()
+    with open_db(args.path) as conn:
+        columns = db_columns(conn)
+        rows = fetch_rows(conn, columns)
 
-# Iterate through each row
-for row in rows:
-    # Print the row, with each field separated by a semicolon
-    print(';'.join([str(item) for item in row]))
+    writer = csv.writer(sys.stdout, delimiter=";")
+    writer.writerow(columns)
+    writer.writerows(rows)
 
-# Close the connection to the database
-connection.close()
+
+if __name__ == "__main__":
+    main()

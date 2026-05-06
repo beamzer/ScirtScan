@@ -1,79 +1,60 @@
-###########################################################################################################
-# this check will verify that robots.txt only contains Allow statements, since Disallow statements give away 
-# interesting information to hackers (often first place to look in reconnaissance)
-# 20240521
-###########################################################################################################
-import requests
+"""Verify robots.txt only uses Allow (or a single Disallow: /); Disallow lines leak structure."""
+from __future__ import annotations
+
+import logging
 import re
 
-def check_robots(website, url, outfile, logger, myheaders):
-    """
-    Args:
-    website (str): The website being checked.
-    url (str): The URL to check.
-    outfile (file object): The file to write output to.
-    logger (function pointer): Function to print debug information.
-    myheaders (dict): The headers to send with the request.
-    """
-    
-    logger(f"=== robots_check")
-    try:
-        check = "NOK"
-        myurl = url + "/robots.txt"
-        response = requests.get(myurl, headers=myheaders)
-        if response.status_code >= 200 and response.status_code < 300 and response.headers['Content-Type'].startswith("text/plain"):
+import requests
 
-            disallow_regex = re.compile('^Disallow:', re.I)  # re.I = case insensitive
-            allow_regex = re.compile('^Allow:', re.I)
-            disallow_all_regex = re.compile('^Disallow: \/$', re.I)
+from scirt.check import CheckContext, CheckResult
+from scirt.http import safe_content_type
 
-            if response.ok:
-                allow_count = 0
-                disallow_count = 0
-                disallow_all_count = 0
+log = logging.getLogger("scirtscan.check.robots")
 
-                for line in response.text.splitlines():
-                    if allow_regex.match(line):
-                        allow_count += 1
-                    elif disallow_all_regex.match(line):
-                        disallow_all_count += 1
-                    elif disallow_regex.match(line):
-                        disallow_count += 1
+DISALLOW_RE = re.compile(r"^Disallow:", re.I)
+ALLOW_RE = re.compile(r"^Allow:", re.I)
+DISALLOW_ALL_RE = re.compile(r"^Disallow:\s*/$", re.I)
 
-                # Determine whether the file is OK or not
-                if (disallow_count == 0) and (allow_count > 0):
-                    check = "OK"
-                elif (disallow_all_count > 0) and (disallow_count == 0):
-                    check = "OK"
-                else:
-                    check = "NOK"
 
-                outfile.write("\n===========Robots Check\n")
-                outfile.write(check + "\n")
-                outfile.write(response.text)
-            else:
-                outfile.write("\n===========Robots Check\n")
-                outfile.write("NOK\n")
-                outfile.write("Error: Could not retrieve robots.txt file\n")
+def _evaluate(text: str) -> str:
+    allow = disallow = disallow_all = 0
+    for line in text.splitlines():
+        if ALLOW_RE.match(line):
+            allow += 1
+        elif DISALLOW_ALL_RE.match(line):
+            disallow_all += 1
+        elif DISALLOW_RE.match(line):
+            disallow += 1
+    if disallow == 0 and allow > 0:
+        return "OK"
+    if disallow_all > 0 and disallow == 0:
+        return "OK"
+    return "NOK"
 
-            check_robots = 1 if check == "OK" else 0
 
-            # The code is functional, but at the moment other checks have priority, so we'll leave
-            # the good/bad results from the overview, but just store the info in the per website debug file
-            #
-            # Update the database only if both `db_cursor` and `db_connection` are provided
-            # if db_cursor and db_connection and website:
-            #     try:
-            #         db_cursor.execute("UPDATE website_checks SET robots_check = ? WHERE websites = ?", (check_robots, website))
-            #         db_connection.commit()
-            #         logger(f"record inserted into website_checks {check_robots}")
-            #     except sqlite3.Error as error:
-            #         print("Failed to insert data into table", error)
-        else:
-            check_robots = 0
+class RobotsCheck:
+    name = "robots"
 
-        return check_robots
+    def run(self, ctx: CheckContext) -> CheckResult:
+        log.debug("=== robots")
+        ctx.outfile.write("\n===========Robots Check\n")
+        try:
+            response = ctx.http.get(ctx.url + "/robots.txt")
+        except requests.RequestException as e:
+            log.warning("failed to fetch robots.txt for %s: %s", ctx.website, e)
+            return CheckResult(columns={"robots_check": 0})
 
-    except requests.RequestException as e:
-        logger(f"Failed to fetch {url}: {str(e)}")
-        return 0  # Consider returning 0 in case of request failures
+        ok = (
+            200 <= response.status_code < 300
+            and safe_content_type(response).startswith("text/plain")
+        )
+        if not ok:
+            ctx.outfile.write("NOK\nrobots.txt missing or wrong Content-Type\n")
+            return CheckResult(columns={"robots_check": 0})
+
+        verdict = _evaluate(response.text)
+        ctx.outfile.write(f"{verdict}\n{response.text}")
+        return CheckResult(columns={"robots_check": 1 if verdict == "OK" else 0})
+
+
+check = RobotsCheck()
